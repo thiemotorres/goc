@@ -1,0 +1,48 @@
+goc - Indoor Cycling Trainer
+Copyright (c) 2025 Thiemo Torres
+
+This software includes the following third-party components:
+
+================================================================================
+termdash
+https://github.com/mum4k/termdash
+--------------------------------------------------------------------------------
+Copyright 2018 Google Inc.
+Licensed under the Apache License, Version 2.0
+
+================================================================================
+gpxgo
+https://github.com/tkrajina/gpxgo
+--------------------------------------------------------------------------------
+Copyright (c) 2016 Tomo Krajina
+Licensed under the Apache License, Version 2.0
+
+================================================================================
+tcell
+https://github.com/gdamore/tcell
+--------------------------------------------------------------------------------
+Copyright 2015-2024 Garrett D'Amore
+Licensed under the Apache License, Version 2.0
+
+================================================================================
+viper
+https://github.com/spf13/viper
+--------------------------------------------------------------------------------
+Copyright (c) 2014 Steve Francia
+Licensed under the MIT License
+
+================================================================================
+modernc.org/sqlite
+https://gitlab.com/cznic/sqlite
+--------------------------------------------------------------------------------
+Copyright (c) 2017 The Sqlite Authors
+Licensed under the BSD 3-Clause License
+
+================================================================================
+
+Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
+MIT License: https://opensource.org/licenses/MIT
+BSD 3-Clause License: https://opensource.org/licenses/BSD-3-Clause
+
+Full license texts for all dependencies can be found in their respective
+repositories or by running: go-licenses report ./...
