@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -94,4 +95,34 @@ func setDefaults(v *viper.Viper) {
 func DefaultConfigDir() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, ".config", "goc")
+}
+
+// Save writes config to file
+func Save(cfg *Config, configDir string) error {
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("create config dir: %w", err)
+	}
+
+	v := viper.New()
+	v.SetConfigType("toml")
+
+	v.Set("trainer.device_id", cfg.Trainer.DeviceID)
+	v.Set("shifter.device_id", cfg.Shifter.DeviceID)
+	v.Set("bike.preset", cfg.Bike.Preset)
+	v.Set("bike.chainrings", cfg.Bike.Chainrings)
+	v.Set("bike.cassette", cfg.Bike.Cassette)
+	v.Set("bike.wheel_circumference", cfg.Bike.WheelCircumference)
+	v.Set("bike.rider_weight", cfg.Bike.RiderWeight)
+	v.Set("display.graph_window_minutes", cfg.Display.GraphWindowMinutes)
+	v.Set("display.climb_gradient_threshold", cfg.Display.ClimbGradientThreshold)
+	v.Set("display.climb_elevation_threshold", cfg.Display.ClimbElevationThreshold)
+	v.Set("controls.shift_up", cfg.Controls.ShiftUp)
+	v.Set("controls.shift_down", cfg.Controls.ShiftDown)
+	v.Set("controls.resistance_up", cfg.Controls.ResistanceUp)
+	v.Set("controls.resistance_down", cfg.Controls.ResistanceDown)
+	v.Set("controls.pause", cfg.Controls.Pause)
+	v.Set("controls.toggle_view", cfg.Controls.ToggleView)
+
+	configPath := filepath.Join(configDir, "config.toml")
+	return v.WriteConfigAs(configPath)
 }
