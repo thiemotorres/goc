@@ -185,3 +185,87 @@ func haversineDistance(lat1, lon1, lat2, lon2 float64) float64 {
 
 	return earthRadius * c
 }
+
+// Climb represents a detected climb segment
+type Climb struct {
+	StartDistance   float64
+	EndDistance     float64
+	StartElevation  float64
+	EndElevation    float64
+	AverageGradient float64
+	MaxGradient     float64
+}
+
+// DetectClimbs finds significant climbs in the route
+// gradientThreshold: minimum average gradient (%)
+// elevationThreshold: minimum elevation gain (meters)
+func (r *Route) DetectClimbs(gradientThreshold, elevationThreshold float64) []Climb {
+	if len(r.Points) < 2 {
+		return nil
+	}
+
+	var climbs []Climb
+	var currentClimb *Climb
+
+	for i := 1; i < len(r.Points); i++ {
+		prev := r.Points[i-1]
+		curr := r.Points[i]
+
+		segmentDist := curr.Distance - prev.Distance
+		if segmentDist == 0 {
+			continue
+		}
+
+		gradient := ((curr.Elevation - prev.Elevation) / segmentDist) * 100
+
+		if gradient >= gradientThreshold {
+			if currentClimb == nil {
+				currentClimb = &Climb{
+					StartDistance:  prev.Distance,
+					StartElevation: prev.Elevation,
+					MaxGradient:    gradient,
+				}
+			}
+			if gradient > currentClimb.MaxGradient {
+				currentClimb.MaxGradient = gradient
+			}
+			currentClimb.EndDistance = curr.Distance
+			currentClimb.EndElevation = curr.Elevation
+		} else if currentClimb != nil {
+			// End of climb
+			elevGain := currentClimb.EndElevation - currentClimb.StartElevation
+			if elevGain >= elevationThreshold {
+				dist := currentClimb.EndDistance - currentClimb.StartDistance
+				currentClimb.AverageGradient = (elevGain / dist) * 100
+				climbs = append(climbs, *currentClimb)
+			}
+			currentClimb = nil
+		}
+	}
+
+	// Check if route ends in a climb
+	if currentClimb != nil {
+		elevGain := currentClimb.EndElevation - currentClimb.StartElevation
+		if elevGain >= elevationThreshold {
+			dist := currentClimb.EndDistance - currentClimb.StartDistance
+			currentClimb.AverageGradient = (elevGain / dist) * 100
+			climbs = append(climbs, *currentClimb)
+		}
+	}
+
+	return climbs
+}
+
+// IsClimbApproaching checks if a climb starts within lookAhead meters
+func (r *Route) IsClimbApproaching(currentDistance, lookAhead, gradientThreshold, elevationThreshold float64) (bool, *Climb) {
+	climbs := r.DetectClimbs(gradientThreshold, elevationThreshold)
+
+	for _, climb := range climbs {
+		if climb.StartDistance > currentDistance &&
+			climb.StartDistance <= currentDistance+lookAhead {
+			return true, &climb
+		}
+	}
+
+	return false, nil
+}
