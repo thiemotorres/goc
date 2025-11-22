@@ -1,6 +1,6 @@
 # goc
 
-Terminal-based indoor cycling trainer for Elite Rivo with Swift Click V2 virtual shifting.
+Terminal-based indoor cycling trainer for FTMS-compatible trainers with virtual shifting support.
 
 > **Note:** This project is a test case for the [superpowers](https://github.com/obra/superpowers) skills framework and was mostly (if not 100%) built using [Claude Code](https://claude.com/claude-code).
 
