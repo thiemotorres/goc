@@ -2,6 +2,8 @@
 
 Terminal-based indoor cycling trainer for Elite Rivo with Swift Click V2 virtual shifting.
 
+> **Note:** This project is a test case for the [superpowers](https://github.com/obra/superpowers) skills framework and was mostly (if not 100%) built using [Claude Code](https://claude.com/claude-code).
+
 ## Features
 - Real-time power, cadence, speed graphs
 - GPX route simulation with gradient-based resistance
