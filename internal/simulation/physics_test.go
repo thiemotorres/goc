@@ -17,3 +17,36 @@ func TestCalculateSpeed_Zero(t *testing.T) {
 	speed := CalculateSpeed(0, 2.94, 2.1)
 	assert.Equal(t, 0.0, speed)
 }
+
+func TestCalculateResistance_Flat(t *testing.T) {
+	// Flat ground, 30 km/h, 75kg rider
+	resistance := CalculateResistance(30, 0, 75)
+	// Should be moderate resistance from air/rolling
+	assert.Greater(t, resistance, 0.0)
+	assert.Less(t, resistance, 50.0) // FTMS resistance is 0-100 scale
+}
+
+func TestCalculateResistance_Climb(t *testing.T) {
+	// 5% climb should increase resistance significantly
+	resistanceFlat := CalculateResistance(20, 0, 75)
+	resistanceClimb := CalculateResistance(20, 5, 75)
+
+	assert.Greater(t, resistanceClimb, resistanceFlat)
+}
+
+func TestCalculateResistance_Descent(t *testing.T) {
+	// Descent should reduce resistance
+	resistanceFlat := CalculateResistance(30, 0, 75)
+	resistanceDescent := CalculateResistance(30, -5, 75)
+
+	assert.Less(t, resistanceDescent, resistanceFlat)
+}
+
+func TestCalculateResistance_Clamped(t *testing.T) {
+	// Extreme values should be clamped to 0-100
+	resistanceSteep := CalculateResistance(5, 20, 100)
+	assert.LessOrEqual(t, resistanceSteep, 100.0)
+
+	resistanceDownhill := CalculateResistance(50, -15, 75)
+	assert.GreaterOrEqual(t, resistanceDownhill, 0.0)
+}
