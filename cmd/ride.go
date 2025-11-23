@@ -62,7 +62,27 @@ func Ride(opts RideOptions) error {
 	if opts.Mock {
 		btManager = bluetooth.NewMockManager()
 	} else {
-		btManager = bluetooth.NewFTMSManager()
+		btManager = bluetooth.NewFTMSManagerWithConfig(bluetooth.FTMSManagerConfig{
+			SavedAddress: cfg.Bluetooth.TrainerAddress,
+			OnStatusChange: func(status bluetooth.ConnectionStatus) {
+				// Could update TUI status here
+				fmt.Printf("Bluetooth: %s\n", status)
+			},
+			OnDeviceSelection: func(devices []bluetooth.DeviceInfo) int {
+				fmt.Println("\nFound trainers:")
+				for i, d := range devices {
+					fmt.Printf("  %d: %s (%s) RSSI: %d\n", i+1, d.Name, d.Address, d.RSSI)
+				}
+				fmt.Print("Select trainer (1-", len(devices), "): ")
+				var choice int
+				fmt.Scanln(&choice)
+				return choice - 1
+			},
+			OnSaveDevice: func(address string) {
+				cfg.Bluetooth.TrainerAddress = address
+				config.Save(cfg, config.DefaultConfigDir())
+			},
+		})
 	}
 
 	// Connect to trainer
