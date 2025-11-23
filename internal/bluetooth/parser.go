@@ -80,3 +80,41 @@ func ParseIndoorBikeData(data []byte) (TrainerData, error) {
 
 	return result, nil
 }
+
+// Control Point opcodes
+const (
+	opRequestControl       = 0x00
+	opReset                = 0x01
+	opSetTargetResistance  = 0x04
+	opSetTargetPower       = 0x05
+	opStartOrResume        = 0x07
+	opStopOrPause          = 0x08
+)
+
+// EncodeRequestControl creates a Request Control command
+func EncodeRequestControl() []byte {
+	return []byte{opRequestControl}
+}
+
+// EncodeSetTargetResistance creates a Set Target Resistance command
+// level: 0-100 percentage
+func EncodeSetTargetResistance(level float64) []byte {
+	// Protocol uses 0-200 range with 0.1% resolution
+	// So 50% = 100 in protocol units
+	protocolLevel := uint8(level * 2)
+	if protocolLevel > 200 {
+		protocolLevel = 200
+	}
+	return []byte{opSetTargetResistance, protocolLevel}
+}
+
+// EncodeSetTargetPower creates a Set Target Power command
+// watts: target power in watts
+func EncodeSetTargetPower(watts float64) []byte {
+	w := int16(watts)
+	return []byte{
+		opSetTargetPower,
+		byte(w & 0xFF),
+		byte((w >> 8) & 0xFF),
+	}
+}
