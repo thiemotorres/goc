@@ -46,3 +46,21 @@ func TestParseIndoorBikeData_TooShort(t *testing.T) {
 
 	assert.Error(t, err)
 }
+
+func TestEncodeRequestControl(t *testing.T) {
+	data := EncodeRequestControl()
+	assert.Equal(t, []byte{0x00}, data)
+}
+
+func TestEncodeSetTargetResistance(t *testing.T) {
+	// 50% resistance = 100 (0.1% resolution, so 50% = 500, but range is 0-200)
+	// Actually: level 0-100 maps to 0-200 in protocol
+	data := EncodeSetTargetResistance(50)
+	assert.Equal(t, []byte{0x04, 100}, data)
+}
+
+func TestEncodeSetTargetPower(t *testing.T) {
+	// 200 watts
+	data := EncodeSetTargetPower(200)
+	assert.Equal(t, []byte{0x05, 0xC8, 0x00}, data)
+}
