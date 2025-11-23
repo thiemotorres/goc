@@ -37,3 +37,35 @@ type Manager interface {
 	// SetTargetPower sets ERG mode target power
 	SetTargetPower(watts float64) error
 }
+
+// ConnectionStatus represents BLE connection state
+type ConnectionStatus int
+
+const (
+	StatusConnecting ConnectionStatus = iota
+	StatusConnected
+	StatusDisconnected
+	StatusReconnecting
+)
+
+func (s ConnectionStatus) String() string {
+	switch s {
+	case StatusConnecting:
+		return "Connecting"
+	case StatusConnected:
+		return "Connected"
+	case StatusDisconnected:
+		return "Disconnected"
+	case StatusReconnecting:
+		return "Reconnecting"
+	default:
+		return "Unknown"
+	}
+}
+
+// DeviceInfo represents a discovered BLE device
+type DeviceInfo struct {
+	Address string
+	Name    string
+	RSSI    int
+}
