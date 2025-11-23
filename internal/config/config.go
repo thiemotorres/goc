@@ -10,11 +10,17 @@ import (
 
 // Config holds application configuration
 type Config struct {
-	Trainer  TrainerConfig  `mapstructure:"trainer"`
-	Shifter  ShifterConfig  `mapstructure:"shifter"`
-	Bike     BikeConfig     `mapstructure:"bike"`
-	Display  DisplayConfig  `mapstructure:"display"`
-	Controls ControlsConfig `mapstructure:"controls"`
+	Trainer   TrainerConfig   `mapstructure:"trainer"`
+	Shifter   ShifterConfig   `mapstructure:"shifter"`
+	Bike      BikeConfig      `mapstructure:"bike"`
+	Bluetooth BluetoothConfig `mapstructure:"bluetooth"`
+	Display   DisplayConfig   `mapstructure:"display"`
+	Controls  ControlsConfig  `mapstructure:"controls"`
+}
+
+// BluetoothConfig holds Bluetooth connection settings
+type BluetoothConfig struct {
+	TrainerAddress string `mapstructure:"trainer_address"`
 }
 
 type TrainerConfig struct {
@@ -108,6 +114,7 @@ func Save(cfg *Config, configDir string) error {
 
 	v.Set("trainer.device_id", cfg.Trainer.DeviceID)
 	v.Set("shifter.device_id", cfg.Shifter.DeviceID)
+	v.Set("bluetooth.trainer_address", cfg.Bluetooth.TrainerAddress)
 	v.Set("bike.preset", cfg.Bike.Preset)
 	v.Set("bike.chainrings", cfg.Bike.Chainrings)
 	v.Set("bike.cassette", cfg.Bike.Cassette)
