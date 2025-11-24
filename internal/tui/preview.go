@@ -49,18 +49,25 @@ func (rp *RoutePreview) View() string {
 
 	// Stats
 	b.WriteString(fmt.Sprintf("Distance:    %.1f km\n", rp.info.Distance/1000))
-	b.WriteString(fmt.Sprintf("Elevation:   %.0fm ↑\n", rp.info.Ascent))
+	if rp.route != nil {
+		b.WriteString(fmt.Sprintf("Elevation:   %.0fm ↑  %.0fm ↓\n", rp.info.Ascent, rp.route.TotalDescent))
+	} else {
+		b.WriteString(fmt.Sprintf("Elevation:   %.0fm ↑\n", rp.info.Ascent))
+	}
 	b.WriteString(fmt.Sprintf("Avg Grade:   %.1f%%\n", rp.info.AvgGrade))
 
 	if rp.route != nil {
 		maxGrade := rp.findMaxGrade()
+		minEle, maxEle := rp.findElevationRange()
 		b.WriteString(fmt.Sprintf("Max Grade:   %.1f%%\n", maxGrade))
+		b.WriteString(fmt.Sprintf("Elev Range:  %.0fm - %.0fm\n", minEle, maxEle))
 	}
 
 	b.WriteString("\n")
 
-	// Elevation sparkline
+	// Elevation profile
 	if rp.route != nil {
+		b.WriteString("Elevation Profile:\n")
 		sparkline := rp.generateSparkline(40)
 		b.WriteString(sparkline)
 		b.WriteString("\n")
@@ -107,6 +114,25 @@ func (rp *RoutePreview) findMaxGrade() float64 {
 		}
 	}
 	return maxGrade
+}
+
+func (rp *RoutePreview) findElevationRange() (min, max float64) {
+	if rp.route == nil || len(rp.route.Points) == 0 {
+		return 0, 0
+	}
+
+	min = rp.route.Points[0].Elevation
+	max = rp.route.Points[0].Elevation
+
+	for _, pt := range rp.route.Points {
+		if pt.Elevation < min {
+			min = pt.Elevation
+		}
+		if pt.Elevation > max {
+			max = pt.Elevation
+		}
+	}
+	return min, max
 }
 
 func (rp *RoutePreview) generateSparkline(width int) string {
