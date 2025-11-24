@@ -13,7 +13,6 @@ import (
 	"github.com/thiemotorres/goc/internal/data"
 	"github.com/thiemotorres/goc/internal/gpx"
 	"github.com/thiemotorres/goc/internal/simulation"
-	"github.com/thiemotorres/goc/internal/tui"
 )
 
 // RideOptions configures a ride session
@@ -106,12 +105,9 @@ func Ride(opts RideOptions) error {
 		ride.GPXName = route.Name
 	}
 
-	// Create TUI
-	renderer, err := tui.NewRenderer()
-	if err != nil {
-		return fmt.Errorf("create TUI: %w", err)
-	}
-	defer renderer.Close()
+	// Console mode - TUI will be added back with Bubble Tea
+	fmt.Println("Starting ride in console mode...")
+	fmt.Println("Press Ctrl+C to stop")
 
 	// Context for cancellation
 	ctx, cancel := context.WithCancel(context.Background())
@@ -136,23 +132,9 @@ func Ride(opts RideOptions) error {
 		pointCount   int
 	)
 
-	// Set up callbacks
-	renderer.SetCallbacks(
-		func() { engine.ShiftUp() },                  // Shift up
-		func() { engine.ShiftDown() },                // Shift down
-		func() { engine.AdjustManualResistance(5) },  // Resistance up
-		func() { engine.AdjustManualResistance(-5) }, // Resistance down
-		func() { // Pause toggle
-			paused = !paused
-			if paused {
-				ride.Pause()
-			} else {
-				ride.Resume()
-			}
-		},
-		func() { /* Toggle view */ },
-		func() { cancel() }, // Quit
-	)
+	// Ticker for periodic status output
+	statusTicker := time.NewTicker(5 * time.Second)
+	defer statusTicker.Stop()
 
 	// Main loop goroutine
 	go func() {
@@ -209,32 +191,8 @@ func Ride(opts RideOptions) error {
 					pointCount++
 				}
 
-				// Update TUI
-				renderer.UpdateMetrics(state.Power, state.Cadence, state.Speed)
-
-				elapsed := time.Since(ride.StartTime)
-				var avgPower, avgCadence, avgSpeed float64
-				if pointCount > 0 {
-					avgPower = totalPower / float64(pointCount)
-					avgCadence = totalCadence / float64(pointCount)
-					avgSpeed = totalSpeed / float64(pointCount)
-				}
-
-				renderer.UpdateStats(
-					formatDuration(elapsed),
-					currentDist,
-					avgPower,
-					avgCadence,
-					avgSpeed,
-					ele,
-				)
-
-				renderer.UpdateStatus(
-					state.GearString,
-					gradient,
-					state.Mode.String(),
-					paused,
-				)
+				// Update averages tracking for status output
+				_ = state // values used in status ticker
 
 				// Send resistance to trainer
 				if state.Mode == simulation.ModeSIM || state.Mode == simulation.ModeFREE {
@@ -250,14 +208,24 @@ func Ride(opts RideOptions) error {
 				case bluetooth.ShiftDown:
 					engine.ShiftDown()
 				}
+
+			case <-statusTicker.C:
+				elapsed := time.Since(ride.StartTime)
+				var avgPower, avgCadence, avgSpeed float64
+				if pointCount > 0 {
+					avgPower = totalPower / float64(pointCount)
+					avgCadence = totalCadence / float64(pointCount)
+					avgSpeed = totalSpeed / float64(pointCount)
+				}
+				fmt.Printf("\r%s | Dist: %.1f km | Pwr: %.0f W | Cad: %.0f | Spd: %.1f km/h     ",
+					formatDuration(elapsed), currentDist/1000, avgPower, avgCadence, avgSpeed)
 			}
 		}
 	}()
 
-	// Run TUI
-	if err := renderer.Run(ctx); err != nil && ctx.Err() == nil {
-		return fmt.Errorf("TUI error: %w", err)
-	}
+	// Wait for context cancellation
+	<-ctx.Done()
+	fmt.Println() // New line after status
 
 	// Save ride
 	ride.Finish()
