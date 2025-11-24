@@ -1,7 +1,10 @@
 package tui
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/thiemotorres/goc/internal/config"
 )
 
 // Screen represents the current screen
@@ -31,14 +34,20 @@ type App struct {
 	// Sub-models
 	mainMenu      *MainMenu
 	startRideMenu *StartRideMenu
+	routesBrowser *RoutesBrowser
+
+	// Config
+	config *config.Config
 }
 
 // NewApp creates a new application
-func NewApp() *App {
+func NewApp(cfg *config.Config) *App {
 	return &App{
 		screen:        ScreenMainMenu,
 		mainMenu:      NewMainMenu(),
 		startRideMenu: NewStartRideMenu(),
+		routesBrowser: NewRoutesBrowser(cfg.Routes.Folder),
+		config:        cfg,
 	}
 }
 
@@ -65,6 +74,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.updateMainMenu(msg)
 	case ScreenStartRide:
 		return a.updateStartRide(msg)
+	case ScreenBrowseRoutes:
+		return a.updateBrowseRoutes(msg)
 	}
 
 	return a, nil
@@ -80,6 +91,8 @@ func (a *App) View() string {
 		return a.mainMenu.View()
 	case ScreenStartRide:
 		return a.startRideMenu.View()
+	case ScreenBrowseRoutes:
+		return a.routesBrowser.View()
 	default:
 		return "Unknown screen"
 	}
@@ -141,9 +154,36 @@ func (a *App) updateStartRide(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
+func (a *App) updateBrowseRoutes(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			a.screen = ScreenStartRide
+		case "up", "k":
+			a.routesBrowser.MoveUp()
+		case "down", "j":
+			a.routesBrowser.MoveDown()
+		case "enter":
+			if route := a.routesBrowser.SelectedRoute(); route != nil {
+				// TODO: Show route preview
+				a.screen = ScreenRoutePreview
+			} else {
+				// Back selected
+				a.screen = ScreenStartRide
+			}
+		}
+	}
+	return a, nil
+}
+
 // Run starts the TUI application
 func Run() error {
-	p := tea.NewProgram(NewApp(), tea.WithAltScreen())
-	_, err := p.Run()
+	cfg, err := config.Load(config.DefaultConfigDir())
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	p := tea.NewProgram(NewApp(cfg), tea.WithAltScreen())
+	_, err = p.Run()
 	return err
 }
