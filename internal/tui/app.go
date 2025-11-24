@@ -21,6 +21,7 @@ const (
 	ScreenTrainerSettings
 	ScreenRoutesSettings
 	ScreenRide
+	ScreenScanner
 )
 
 // App is the main application model
@@ -42,6 +43,7 @@ type App struct {
 	historyView     *HistoryView
 	rideScreen      *RideScreen
 	rideSession     *RideSession
+	scannerScreen   *ScannerScreen
 	connecting      bool
 	connectStatus   string
 
@@ -114,6 +116,23 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.rideScreen = nil
 		a.screen = ScreenMainMenu
 		return a, nil
+
+	case ScanResultMsg:
+		if a.scannerScreen != nil {
+			a.scannerScreen.Update(msg)
+		}
+		return a, nil
+
+	case DeviceSelectedMsg:
+		// Save the selected device
+		a.config.Bluetooth.TrainerAddress = msg.Address
+		config.Save(a.config, config.DefaultConfigDir())
+		// Update trainer settings display
+		if a.trainerSettings != nil {
+			a.trainerSettings.address = msg.Address
+		}
+		a.screen = ScreenTrainerSettings
+		return a, nil
 	}
 
 	// Delegate to current screen
@@ -134,6 +153,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.updateHistory(msg)
 	case ScreenRide:
 		return a.updateRide(msg)
+	case ScreenScanner:
+		return a.updateScanner(msg)
 	}
 
 	return a, nil
@@ -173,6 +194,11 @@ func (a *App) View() string {
 			return a.rideScreen.View()
 		}
 		return "Ride not started"
+	case ScreenScanner:
+		if a.scannerScreen != nil {
+			return a.scannerScreen.View()
+		}
+		return "Scanner not loaded"
 	default:
 		return "Unknown screen"
 	}
@@ -320,11 +346,13 @@ func (a *App) updateTrainerSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			switch a.trainerSettings.Selected() {
 			case 0: // Scan for Trainers
-				// TODO: Start Bluetooth scan
+				a.scannerScreen = NewScannerScreen(a.config)
+				a.screen = ScreenScanner
+				return a, a.scannerScreen.StartScan()
 			case 1: // Forget Saved Trainer
 				a.config.Bluetooth.TrainerAddress = ""
 				a.trainerSettings.address = ""
-				// TODO: Save config
+				config.Save(a.config, config.DefaultConfigDir())
 			case 2: // Back
 				a.screen = ScreenSettings
 			}
@@ -358,6 +386,45 @@ func (a *App) updateHistory(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (a *App) updateRide(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if a.rideScreen != nil {
 		return a, a.rideScreen.Update(msg)
+	}
+	return a, nil
+}
+
+func (a *App) updateScanner(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if a.scannerScreen == nil {
+		return a, nil
+	}
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		if a.scannerScreen.scanning {
+			return a, nil // Ignore keys while scanning
+		}
+		switch msg.String() {
+		case "esc":
+			a.screen = ScreenTrainerSettings
+		case "up", "k":
+			a.scannerScreen.MoveUp()
+		case "down", "j":
+			a.scannerScreen.MoveDown()
+		case "r":
+			// Retry scan
+			a.scannerScreen = NewScannerScreen(a.config)
+			return a, a.scannerScreen.StartScan()
+		case "enter":
+			if device := a.scannerScreen.SelectDevice(); device != nil {
+				// Save selected device
+				a.config.Bluetooth.TrainerAddress = device.Address
+				config.Save(a.config, config.DefaultConfigDir())
+				if a.trainerSettings != nil {
+					a.trainerSettings.address = device.Address
+				}
+				a.screen = ScreenTrainerSettings
+			} else {
+				// Back selected
+				a.screen = ScreenTrainerSettings
+			}
+		}
 	}
 	return a, nil
 }
