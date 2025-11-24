@@ -31,6 +31,16 @@ func gradientColorStyle(gradient float64) lipgloss.Style {
 	return gradientSteep
 }
 
+// slopeCharacter returns appropriate Unicode character for elevation slope
+func slopeCharacter(prevY, currY int) string {
+	if currY == prevY {
+		return "─" // Flat
+	} else if currY < prevY {
+		return "╱" // Going up (Y decreases as elevation increases)
+	}
+	return "╲" // Going down
+}
+
 // RouteViewMode represents the current view mode
 type RouteViewMode int
 
@@ -205,12 +215,17 @@ func (rv *RouteView) drawElevationProfile() string {
 		Foreground(lipgloss.Color("255")).
 		Bold(true)
 
+	// Pre-calculate elevation Y positions for smooth line rendering
+	eleYPositions := make([]int, w)
+	for x := 0; x < w; x++ {
+		eleYPositions[x] = int((maxEle - sampledElevations[x]) / eleRange * float64(h-1))
+	}
+
 	// Build output line by line with colored backgrounds
 	var b strings.Builder
 	for y := 0; y < h; y++ {
 		for x := 0; x < w; x++ {
-			// Calculate if this cell is at or below elevation line
-			eleY := int((maxEle - sampledElevations[x]) / eleRange * float64(h-1))
+			eleY := eleYPositions[x]
 
 			// Determine character
 			var char string
@@ -220,11 +235,15 @@ func (rv *RouteView) drawElevationProfile() string {
 				b.WriteString(markerStyle.Render(char))
 			} else {
 				if y == eleY {
-					char = "─" // Elevation line
-				} else if y > eleY {
-					char = " " // Below line (changed from ▓ to space for clean look)
+					// Determine slope from previous point
+					if x > 0 {
+						prevEleY := eleYPositions[x-1]
+						char = slopeCharacter(prevEleY, eleY)
+					} else {
+						char = "─"
+					}
 				} else {
-					char = " " // Above line
+					char = " " // Changed from "▓" - no fill
 				}
 				// Apply gradient color as background
 				style := gradientColorStyle(sampledGradients[x])

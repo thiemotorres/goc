@@ -63,13 +63,36 @@ func TestDrawElevationProfileWithColors(t *testing.T) {
 		t.Errorf("Expected at least 5 lines of output, got %d", len(lines))
 	}
 
-	// Verify that the output contains elevation line characters
-	// (the implementation uses colored rendering with "─" for the elevation line)
-	if !strings.Contains(output, "─") && !strings.Contains(output, "▓") {
-		t.Error("Expected output to contain elevation line or fill characters")
+	// Verify that the output contains smooth elevation line characters
+	// (the implementation uses "─", "╱", "╲" for smooth line rendering)
+	hasLine := strings.Contains(output, "─") || strings.Contains(output, "╱") || strings.Contains(output, "╲")
+	if !hasLine {
+		t.Error("Expected output to contain smooth elevation line characters (─, ╱, ╲)")
 	}
 
 	// Note: ANSI codes may not appear in test environment where lipgloss
 	// detects no TTY, but the gradient color logic is tested separately
 	// in TestGradientColor
+}
+
+func TestSlopeCharacter(t *testing.T) {
+	tests := []struct {
+		prevY, currY int
+		wantChar     string
+	}{
+		{5, 5, "─"},   // Flat
+		{5, 3, "╱"},   // Up
+		{3, 5, "╲"},   // Down
+		{5, 4, "╱"},   // Slight up
+		{4, 5, "╲"},   // Slight down
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%d_to_%d", tt.prevY, tt.currY), func(t *testing.T) {
+			got := slopeCharacter(tt.prevY, tt.currY)
+			if got != tt.wantChar {
+				t.Errorf("slopeCharacter(%d, %d) = %q, want %q", tt.prevY, tt.currY, got, tt.wantChar)
+			}
+		})
+	}
 }
