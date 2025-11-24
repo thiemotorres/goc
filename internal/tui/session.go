@@ -108,6 +108,14 @@ func NewRideSession(cfg *config.Config, rideType RideType, route *RouteInfo, moc
 	} else {
 		btManager = bluetooth.NewFTMSManagerWithConfig(bluetooth.FTMSManagerConfig{
 			SavedAddress: cfg.Bluetooth.TrainerAddress,
+			OnStatusChange: func(status bluetooth.ConnectionStatus) {
+				// Status updates are handled via the data loop
+			},
+			OnSaveDevice: func(address string) {
+				// Save the trainer address for next time
+				cfg.Bluetooth.TrainerAddress = address
+				config.Save(cfg, config.DefaultConfigDir())
+			},
 		})
 	}
 

@@ -363,8 +363,9 @@ func (a *App) updateRide(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a *App) startRide(rideType RideType, route *RouteInfo) tea.Cmd {
-	// Create ride session (use mock for now - can be made configurable)
-	session, err := NewRideSession(a.config, rideType, route, true) // mock=true for testing
+	// Create ride session with real Bluetooth
+	// Set mock=false to use actual trainer, mock=true for development testing
+	session, err := NewRideSession(a.config, rideType, route, false)
 	if err != nil {
 		a.connectStatus = err.Error()
 		return nil
