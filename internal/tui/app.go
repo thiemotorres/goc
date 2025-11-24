@@ -40,6 +40,7 @@ type App struct {
 	settingsMenu    *SettingsMenu
 	trainerSettings *TrainerSettings
 	historyView     *HistoryView
+	rideScreen      *RideScreen
 
 	// Config
 	config *config.Config
@@ -90,6 +91,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.updateTrainerSettings(msg)
 	case ScreenHistory:
 		return a.updateHistory(msg)
+	case ScreenRide:
+		return a.updateRide(msg)
 	}
 
 	return a, nil
@@ -124,6 +127,11 @@ func (a *App) View() string {
 			return a.historyView.View()
 		}
 		return "History not loaded"
+	case ScreenRide:
+		if a.rideScreen != nil {
+			return a.rideScreen.View()
+		}
+		return "Ride not started"
 	default:
 		return "Unknown screen"
 	}
@@ -173,9 +181,10 @@ func (a *App) updateStartRide(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			switch a.startRideMenu.Selected() {
 			case 0: // Free Ride
-				// TODO: Start free ride
+				a.startRide(RideFree, nil)
 			case 1: // ERG Mode
-				// TODO: Show ERG watts input
+				// TODO: Show ERG watts input, for now start with 150W
+				a.startRide(RideERG, nil)
 			case 2: // Ride a Route
 				a.screen = ScreenBrowseRoutes
 			case 3: // Back
@@ -223,7 +232,7 @@ func (a *App) updateRoutePreview(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if a.routePreview.Selected() == 0 {
 				// Start ride with route
-				// TODO: Connect and start
+				a.startRide(RideRoute, a.selectedRoute)
 			} else {
 				a.screen = ScreenBrowseRoutes
 			}
@@ -303,6 +312,34 @@ func (a *App) updateHistory(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return a, nil
+}
+
+func (a *App) updateRide(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if a.rideScreen != nil {
+		return a, a.rideScreen.Update(msg)
+	}
+	return a, nil
+}
+
+func (a *App) startRide(rideType RideType, route *RouteInfo) {
+	a.rideScreen = NewRideScreen()
+
+	// Set up callbacks
+	a.rideScreen.SetCallbacks(
+		nil, // shiftUp - will be connected to simulation engine
+		nil, // shiftDown
+		nil, // resUp
+		nil, // resDown
+		nil, // pause
+		func() { // quit
+			a.screen = ScreenMainMenu
+			a.rideScreen = nil
+		},
+	)
+
+	// TODO: Connect to Bluetooth and simulation engine
+	// For now, just show the ride screen
+	a.screen = ScreenRide
 }
 
 // Run starts the TUI application
