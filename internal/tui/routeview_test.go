@@ -2,9 +2,11 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/thiemotorres/goc/internal/gpx"
 )
 
 func TestGradientColor(t *testing.T) {
@@ -33,4 +35,41 @@ func TestGradientColor(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDrawElevationProfileWithColors(t *testing.T) {
+	route := &gpx.Route{
+		Points: []gpx.Point{
+			{Distance: 0, Elevation: 100},
+			{Distance: 1000, Elevation: 130},  // 3% gradient
+			{Distance: 2000, Elevation: 180},  // 5% gradient
+			{Distance: 3000, Elevation: 280},  // 10% gradient
+		},
+	}
+
+	routeInfo := &RouteInfo{
+		Distance: 3000,
+		Ascent:   180,
+	}
+
+	rv := NewRouteView(routeInfo, route, 40, 10)
+	rv.distance = 1500
+
+	output := rv.drawElevationProfile()
+
+	// Check output is not empty and has expected dimensions
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) < 5 {
+		t.Errorf("Expected at least 5 lines of output, got %d", len(lines))
+	}
+
+	// Verify that the output contains elevation line characters
+	// (the implementation uses colored rendering with "─" for the elevation line)
+	if !strings.Contains(output, "─") && !strings.Contains(output, "▓") {
+		t.Error("Expected output to contain elevation line or fill characters")
+	}
+
+	// Note: ANSI codes may not appear in test environment where lipgloss
+	// detects no TTY, but the gradient color logic is tested separately
+	// in TestGradientColor
 }

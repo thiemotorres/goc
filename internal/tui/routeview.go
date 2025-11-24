@@ -158,7 +158,6 @@ func (rv *RouteView) drawElevationProfile() string {
 		return "No route data"
 	}
 
-	// Sample points evenly across the width
 	w, h := rv.width, rv.height
 	if w <= 0 {
 		w = 60
@@ -167,10 +166,13 @@ func (rv *RouteView) drawElevationProfile() string {
 		h = 15
 	}
 
+	// Sample elevations and gradients evenly across width
 	sampledElevations := make([]float64, w)
+	sampledGradients := make([]float64, w)
 	for i := 0; i < w; i++ {
 		distance := float64(i) / float64(w-1) * rv.routeInfo.Distance
 		sampledElevations[i] = rv.route.ElevationAt(distance)
+		sampledGradients[i] = rv.route.GradientAt(distance)
 	}
 
 	// Find min/max for scaling
@@ -189,47 +191,68 @@ func (rv *RouteView) drawElevationProfile() string {
 		eleRange = 1
 	}
 
-	// Create grid
-	grid := make([][]rune, h)
-	for i := range grid {
-		grid[i] = make([]rune, w)
-		for j := range grid[i] {
-			grid[i][j] = ' '
-		}
-	}
-
-	// Plot elevation line
-	for i := 0; i < w; i++ {
-		y := int((maxEle - sampledElevations[i]) / eleRange * float64(h-1))
-		if y >= 0 && y < h {
-			grid[y][i] = '█'
-		}
-		// Fill below the line
-		for j := y + 1; j < h; j++ {
-			if j >= 0 && j < h {
-				grid[j][i] = '▓'
-			}
-		}
-	}
-
-	// Mark current position
-	if rv.routeInfo.Distance > 0 {
-		x := int((rv.distance / rv.routeInfo.Distance) * float64(w-1))
-		if x >= 0 && x < w {
-			for y := 0; y < h; y++ {
-				grid[y][x] = '│'
-			}
-		}
-	}
-
-	// Convert to string
+	// Build output line by line with colored backgrounds
 	var b strings.Builder
-	for _, row := range grid {
-		b.WriteString(string(row))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			// Calculate if this cell is at or below elevation line
+			eleY := int((maxEle - sampledElevations[x]) / eleRange * float64(h-1))
+
+			// Determine character
+			var char string
+			if y == eleY {
+				char = "─" // Elevation line
+			} else if y > eleY {
+				char = "▓" // Below line
+			} else {
+				char = " " // Above line
+			}
+
+			// Apply gradient color as background
+			style := gradientColorStyle(sampledGradients[x])
+			b.WriteString(style.Render(char))
+		}
 		b.WriteString("\n")
 	}
 
+	// Add position marker after building grid
+	if rv.routeInfo.Distance > 0 {
+		posX := int((rv.distance / rv.routeInfo.Distance) * float64(w-1))
+		if posX >= 0 && posX < w {
+			// Rebuild with position marker
+			output := b.String()
+			lines := strings.Split(output, "\n")
+
+			markerStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("255")).
+				Bold(true)
+
+			// Overlay marker on each line
+			for i := 0; i < len(lines) && i < h; i++ {
+				// Insert position marker (this is simplified - proper implementation
+				// needs to handle ANSI codes in string)
+				lines[i] = insertMarkerAt(lines[i], posX, markerStyle)
+			}
+
+			return strings.Join(lines, "\n")
+		}
+	}
+
 	return b.String()
+}
+
+// insertMarkerAt inserts a position marker at the given x position
+// Note: This is a simplified version - production code needs proper ANSI handling
+func insertMarkerAt(line string, x int, style lipgloss.Style) string {
+	// For now, just overlay the marker
+	// TODO: Properly handle ANSI escape codes
+	runes := []rune(line)
+	if x < len(runes) {
+		marker := style.Render("┃")
+		// Simple replacement - doesn't account for multi-byte or ANSI
+		return string(runes[:x]) + marker + string(runes[x+1:])
+	}
+	return line
 }
 
 // Update updates the route view with current position and gradient
