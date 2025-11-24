@@ -183,3 +183,38 @@ func TestDrawLine(t *testing.T) {
 		})
 	}
 }
+
+func TestDrawMinimapConnected(t *testing.T) {
+	route := &gpx.Route{
+		Points: []gpx.Point{
+			{Lat: 0, Lon: 0, Distance: 0},
+			{Lat: 0.01, Lon: 0.01, Distance: 1000},
+			{Lat: 0.02, Lon: 0.01, Distance: 2000},
+		},
+	}
+
+	routeInfo := &RouteInfo{
+		Distance: 2000,
+	}
+
+	rv := NewRouteView(routeInfo, route, 40, 10)
+	rv.distance = 1000
+
+	output := rv.drawMinimap()
+
+	// Check that output contains solid blocks (route line)
+	if !strings.Contains(output, "█") {
+		t.Error("Expected minimap to contain solid block characters for route line")
+	}
+
+	// Check for position marker
+	if !strings.Contains(output, "●") {
+		t.Error("Expected minimap to contain position marker")
+	}
+
+	// Verify output has expected dimensions
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) < 5 {
+		t.Errorf("Expected at least 5 lines, got %d", len(lines))
+	}
+}

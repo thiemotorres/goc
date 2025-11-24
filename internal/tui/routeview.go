@@ -78,7 +78,6 @@ func NewRouteView(routeInfo *RouteInfo, route *gpx.Route, width, height int) *Ro
 }
 
 func (rv *RouteView) drawMinimap() string {
-	// Get route bounds
 	points := rv.route.Points
 	if len(points) == 0 {
 		return "No route data"
@@ -112,7 +111,6 @@ func (rv *RouteView) drawMinimap() string {
 		lonRange = 1
 	}
 
-	// Create a 2D grid for plotting
 	w, h := rv.width, rv.height
 	if w <= 0 {
 		w = 40
@@ -121,37 +119,48 @@ func (rv *RouteView) drawMinimap() string {
 		h = 10
 	}
 
-	grid := make([][]rune, h)
+	// Account for terminal character aspect ratio (~2:1)
+	aspectRatio := 2.0
+
+	// Create grid for route line
+	grid := make([][]bool, h)
 	for i := range grid {
-		grid[i] = make([]rune, w)
-		for j := range grid[i] {
-			grid[i][j] = ' '
-		}
+		grid[i] = make([]bool, w)
 	}
 
-	// Plot route path
-	for i := 0; i < len(points); i++ {
-		x := int((points[i].Lon - minLon) / lonRange * float64(w-1))
-		y := int((maxLat - points[i].Lat) / latRange * float64(h-1)) // Flip Y axis
-		if x >= 0 && x < w && y >= 0 && y < h {
-			grid[y][x] = '·'
-		}
+	// Draw connected route path using line algorithm
+	for i := 1; i < len(points); i++ {
+		prevX := int((points[i-1].Lon - minLon) / lonRange * float64(w-1) / aspectRatio)
+		prevY := int((maxLat - points[i-1].Lat) / latRange * float64(h-1))
+		currX := int((points[i].Lon - minLon) / lonRange * float64(w-1) / aspectRatio)
+		currY := int((maxLat - points[i].Lat) / latRange * float64(h-1))
+
+		drawLine(grid, prevX, prevY, currX, currY)
 	}
 
-	// Mark current position
+	// Calculate current position marker location
+	posX, posY := -1, -1
 	if rv.distance > 0 && rv.distance < rv.routeInfo.Distance {
 		lat, lon := rv.route.PositionAt(rv.distance)
-		x := int((lon - minLon) / lonRange * float64(w-1))
-		y := int((maxLat - lat) / latRange * float64(h-1))
-		if x >= 0 && x < w && y >= 0 && y < h {
-			grid[y][x] = '●'
-		}
+		posX = int((lon - minLon) / lonRange * float64(w-1) / aspectRatio)
+		posY = int((maxLat - lat) / latRange * float64(h-1))
 	}
 
-	// Convert grid to string
+	// Render grid to string
+	routeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("255"))
+	posStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+
 	var b strings.Builder
-	for _, row := range grid {
-		b.WriteString(string(row))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			if x == posX && y == posY {
+				b.WriteString(posStyle.Render("●"))
+			} else if grid[y][x] {
+				b.WriteString(routeStyle.Render("█"))
+			} else {
+				b.WriteString(" ")
+			}
+		}
 		b.WriteString("\n")
 	}
 
