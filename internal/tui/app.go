@@ -41,6 +41,9 @@ type App struct {
 	trainerSettings *TrainerSettings
 	historyView     *HistoryView
 	rideScreen      *RideScreen
+	rideSession     *RideSession
+	connecting      bool
+	connectStatus   string
 
 	// Config
 	config *config.Config
@@ -70,9 +73,47 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		if msg.String() == "ctrl+c" {
+			if a.rideSession != nil {
+				return a, a.rideSession.Stop()
+			}
 			a.quitting = true
 			return a, tea.Quit
 		}
+
+	case RideConnectingMsg:
+		a.connectStatus = msg.Status
+		return a, nil
+
+	case RideConnectedMsg:
+		a.connecting = false
+		a.screen = ScreenRide
+		// Start data loop
+		return a, a.rideSession.StartDataLoop()
+
+	case RideUpdateMsg:
+		if a.rideScreen != nil {
+			a.rideScreen.UpdateMetrics(msg.Power, msg.Cadence, msg.Speed)
+			a.rideScreen.UpdateStats(msg.Elapsed, msg.Distance, msg.AvgPower, msg.AvgCadence, msg.AvgSpeed, msg.Elevation)
+			a.rideScreen.UpdateStatus(msg.Gear, msg.Gradient, msg.Mode, msg.Paused)
+		}
+		// Continue data loop
+		if a.rideSession != nil {
+			return a, a.rideSession.StartDataLoop()
+		}
+		return a, nil
+
+	case RideErrorMsg:
+		a.connecting = false
+		a.connectStatus = msg.Error.Error()
+		// Return to menu after error
+		a.screen = ScreenStartRide
+		return a, nil
+
+	case RideFinishedMsg:
+		a.rideSession = nil
+		a.rideScreen = nil
+		a.screen = ScreenMainMenu
+		return a, nil
 	}
 
 	// Delegate to current screen
@@ -181,10 +222,10 @@ func (a *App) updateStartRide(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			switch a.startRideMenu.Selected() {
 			case 0: // Free Ride
-				a.startRide(RideFree, nil)
+				return a, a.startRide(RideFree, nil)
 			case 1: // ERG Mode
 				// TODO: Show ERG watts input, for now start with 150W
-				a.startRide(RideERG, nil)
+				return a, a.startRide(RideERG, nil)
 			case 2: // Ride a Route
 				a.screen = ScreenBrowseRoutes
 			case 3: // Back
@@ -232,7 +273,7 @@ func (a *App) updateRoutePreview(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if a.routePreview.Selected() == 0 {
 				// Start ride with route
-				a.startRide(RideRoute, a.selectedRoute)
+				return a, a.startRide(RideRoute, a.selectedRoute)
 			} else {
 				a.screen = ScreenBrowseRoutes
 			}
@@ -321,25 +362,38 @@ func (a *App) updateRide(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-func (a *App) startRide(rideType RideType, route *RouteInfo) {
+func (a *App) startRide(rideType RideType, route *RouteInfo) tea.Cmd {
+	// Create ride session (use mock for now - can be made configurable)
+	session, err := NewRideSession(a.config, rideType, route, true) // mock=true for testing
+	if err != nil {
+		a.connectStatus = err.Error()
+		return nil
+	}
+
+	a.rideSession = session
 	a.rideScreen = NewRideScreen()
 
 	// Set up callbacks
 	a.rideScreen.SetCallbacks(
-		nil, // shiftUp - will be connected to simulation engine
-		nil, // shiftDown
-		nil, // resUp
-		nil, // resDown
-		nil, // pause
-		func() { // quit
+		func() { session.ShiftUp() },
+		func() { session.ShiftDown() },
+		func() { session.AdjustResistance(5) },
+		func() { session.AdjustResistance(-5) },
+		func() { session.TogglePause() },
+		func() {
+			// Stop ride and return to menu
+			session.Stop()
 			a.screen = ScreenMainMenu
 			a.rideScreen = nil
+			a.rideSession = nil
 		},
 	)
 
-	// TODO: Connect to Bluetooth and simulation engine
-	// For now, just show the ride screen
-	a.screen = ScreenRide
+	a.connecting = true
+	a.connectStatus = "Connecting to trainer..."
+
+	// Start connection
+	return session.Connect()
 }
 
 // Run starts the TUI application
