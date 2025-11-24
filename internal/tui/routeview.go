@@ -298,7 +298,7 @@ func (rv *RouteView) shouldAutoSwitch() bool {
 		// Check if gradient is low for sustained period
 		if rv.gradient < 1.0 {
 			rv.climbTime += 0.1 // Assuming ~10 updates per second
-			if rv.climbTime > 60 { // 1 minute of flat terrain
+			if rv.climbTime > 30 { // 30 seconds of flat terrain
 				rv.climbTime = 0
 				return true
 			}

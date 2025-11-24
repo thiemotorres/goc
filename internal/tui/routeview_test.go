@@ -218,3 +218,30 @@ func TestDrawMinimapConnected(t *testing.T) {
 		t.Errorf("Expected at least 5 lines, got %d", len(lines))
 	}
 }
+
+func TestAutoSwitchTiming(t *testing.T) {
+	route := &gpx.Route{
+		Points: []gpx.Point{
+			{Distance: 0, Elevation: 100},
+			{Distance: 1000, Elevation: 150},
+		},
+	}
+
+	routeInfo := &RouteInfo{
+		Distance: 1000,
+	}
+
+	rv := NewRouteView(routeInfo, route, 40, 10)
+	rv.viewMode = RouteViewElevation
+	rv.autoSwitched = true
+
+	// Simulate 30 seconds of flat terrain (300 updates at 0.1s each)
+	for i := 0; i < 300; i++ {
+		rv.Update(500, 0.5) // Low gradient
+	}
+
+	// After 30s of flat, should auto-switch back to minimap
+	if rv.viewMode != RouteViewMinimap {
+		t.Error("Expected auto-switch to minimap after 30s of flat terrain")
+	}
+}
