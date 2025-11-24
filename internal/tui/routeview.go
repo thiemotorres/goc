@@ -191,6 +191,20 @@ func (rv *RouteView) drawElevationProfile() string {
 		eleRange = 1
 	}
 
+	// Calculate position marker x coordinate
+	posX := -1
+	if rv.routeInfo.Distance > 0 {
+		posX = int((rv.distance / rv.routeInfo.Distance) * float64(w-1))
+		if posX < 0 || posX >= w {
+			posX = -1
+		}
+	}
+
+	// Marker style
+	markerStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("255")).
+		Bold(true)
+
 	// Build output line by line with colored backgrounds
 	var b strings.Builder
 	for y := 0; y < h; y++ {
@@ -200,59 +214,27 @@ func (rv *RouteView) drawElevationProfile() string {
 
 			// Determine character
 			var char string
-			if y == eleY {
-				char = "─" // Elevation line
-			} else if y > eleY {
-				char = "▓" // Below line
+			if x == posX {
+				// Render position marker
+				char = "┃"
+				b.WriteString(markerStyle.Render(char))
 			} else {
-				char = " " // Above line
+				if y == eleY {
+					char = "─" // Elevation line
+				} else if y > eleY {
+					char = " " // Below line (changed from ▓ to space for clean look)
+				} else {
+					char = " " // Above line
+				}
+				// Apply gradient color as background
+				style := gradientColorStyle(sampledGradients[x])
+				b.WriteString(style.Render(char))
 			}
-
-			// Apply gradient color as background
-			style := gradientColorStyle(sampledGradients[x])
-			b.WriteString(style.Render(char))
 		}
 		b.WriteString("\n")
 	}
 
-	// Add position marker after building grid
-	if rv.routeInfo.Distance > 0 {
-		posX := int((rv.distance / rv.routeInfo.Distance) * float64(w-1))
-		if posX >= 0 && posX < w {
-			// Rebuild with position marker
-			output := b.String()
-			lines := strings.Split(output, "\n")
-
-			markerStyle := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("255")).
-				Bold(true)
-
-			// Overlay marker on each line
-			for i := 0; i < len(lines) && i < h; i++ {
-				// Insert position marker (this is simplified - proper implementation
-				// needs to handle ANSI codes in string)
-				lines[i] = insertMarkerAt(lines[i], posX, markerStyle)
-			}
-
-			return strings.Join(lines, "\n")
-		}
-	}
-
 	return b.String()
-}
-
-// insertMarkerAt inserts a position marker at the given x position
-// Note: This is a simplified version - production code needs proper ANSI handling
-func insertMarkerAt(line string, x int, style lipgloss.Style) string {
-	// For now, just overlay the marker
-	// TODO: Properly handle ANSI escape codes
-	runes := []rune(line)
-	if x < len(runes) {
-		marker := style.Render("┃")
-		// Simple replacement - doesn't account for multi-byte or ANSI
-		return string(runes[:x]) + marker + string(runes[x+1:])
-	}
-	return line
 }
 
 // Update updates the route view with current position and gradient
