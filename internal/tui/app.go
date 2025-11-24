@@ -35,6 +35,8 @@ type App struct {
 	mainMenu      *MainMenu
 	startRideMenu *StartRideMenu
 	routesBrowser *RoutesBrowser
+	routePreview  *RoutePreview
+	selectedRoute *RouteInfo
 
 	// Config
 	config *config.Config
@@ -76,6 +78,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.updateStartRide(msg)
 	case ScreenBrowseRoutes:
 		return a.updateBrowseRoutes(msg)
+	case ScreenRoutePreview:
+		return a.updateRoutePreview(msg)
 	}
 
 	return a, nil
@@ -93,6 +97,11 @@ func (a *App) View() string {
 		return a.startRideMenu.View()
 	case ScreenBrowseRoutes:
 		return a.routesBrowser.View()
+	case ScreenRoutePreview:
+		if a.routePreview != nil {
+			return a.routePreview.View()
+		}
+		return "No route selected"
 	default:
 		return "Unknown screen"
 	}
@@ -166,11 +175,34 @@ func (a *App) updateBrowseRoutes(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.routesBrowser.MoveDown()
 		case "enter":
 			if route := a.routesBrowser.SelectedRoute(); route != nil {
-				// TODO: Show route preview
+				a.selectedRoute = route
+				a.routePreview = NewRoutePreview(route)
 				a.screen = ScreenRoutePreview
 			} else {
 				// Back selected
 				a.screen = ScreenStartRide
+			}
+		}
+	}
+	return a, nil
+}
+
+func (a *App) updateRoutePreview(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			a.screen = ScreenBrowseRoutes
+		case "left", "h":
+			a.routePreview.MoveLeft()
+		case "right", "l":
+			a.routePreview.MoveRight()
+		case "enter":
+			if a.routePreview.Selected() == 0 {
+				// Start ride with route
+				// TODO: Connect and start
+			} else {
+				a.screen = ScreenBrowseRoutes
 			}
 		}
 	}
