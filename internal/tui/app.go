@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/thiemotorres/goc/internal/config"
 )
 
@@ -19,9 +20,11 @@ const (
 	ScreenRideDetail
 	ScreenSettings
 	ScreenTrainerSettings
+	ScreenBikeSettings
 	ScreenRoutesSettings
 	ScreenRide
 	ScreenScanner
+	ScreenConnecting
 )
 
 // App is the main application model
@@ -40,12 +43,13 @@ type App struct {
 	selectedRoute   *RouteInfo
 	settingsMenu    *SettingsMenu
 	trainerSettings *TrainerSettings
-	historyView     *HistoryView
-	rideScreen      *RideScreen
-	rideSession     *RideSession
-	scannerScreen   *ScannerScreen
-	connecting      bool
-	connectStatus   string
+	bikeSettings    *BikeSettings
+	historyView       *HistoryView
+	rideScreen        *RideScreen
+	rideSession       *RideSession
+	scannerScreen     *ScannerScreen
+	connectingScreen  *ConnectingScreen
+	connectStatus     string
 
 	// Config
 	config *config.Config
@@ -87,8 +91,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case RideConnectedMsg:
-		a.connecting = false
 		a.screen = ScreenRide
+		// Initialize ride screen dimensions
+		if a.rideScreen != nil && a.width > 0 && a.height > 0 {
+			a.rideScreen.Update(tea.WindowSizeMsg{Width: a.width, Height: a.height})
+		}
 		// Start data loop
 		return a, a.rideSession.StartDataLoop()
 
@@ -105,10 +112,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case RideErrorMsg:
-		a.connecting = false
 		a.connectStatus = msg.Error.Error()
 		// Return to menu after error
 		a.screen = ScreenStartRide
+		a.connectingScreen = nil
 		return a, nil
 
 	case RideFinishedMsg:
@@ -149,12 +156,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.updateSettings(msg)
 	case ScreenTrainerSettings:
 		return a.updateTrainerSettings(msg)
+	case ScreenBikeSettings:
+		return a.updateBikeSettings(msg)
 	case ScreenHistory:
 		return a.updateHistory(msg)
 	case ScreenRide:
 		return a.updateRide(msg)
 	case ScreenScanner:
 		return a.updateScanner(msg)
+	case ScreenConnecting:
+		return a.updateConnecting(msg)
 	}
 
 	return a, nil
@@ -169,7 +180,13 @@ func (a *App) View() string {
 	case ScreenMainMenu:
 		return a.mainMenu.View()
 	case ScreenStartRide:
-		return a.startRideMenu.View()
+		view := a.startRideMenu.View()
+		// Show error message if there is one
+		if a.connectStatus != "" {
+			errorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+			view = view + "\n\n" + errorStyle.Render("Error: "+a.connectStatus)
+		}
+		return view
 	case ScreenBrowseRoutes:
 		return a.routesBrowser.View()
 	case ScreenRoutePreview:
@@ -182,6 +199,11 @@ func (a *App) View() string {
 	case ScreenTrainerSettings:
 		if a.trainerSettings != nil {
 			return a.trainerSettings.View()
+		}
+		return "Settings not loaded"
+	case ScreenBikeSettings:
+		if a.bikeSettings != nil {
+			return a.bikeSettings.View()
 		}
 		return "Settings not loaded"
 	case ScreenHistory:
@@ -199,6 +221,11 @@ func (a *App) View() string {
 			return a.scannerScreen.View()
 		}
 		return "Scanner not loaded"
+	case ScreenConnecting:
+		if a.connectingScreen != nil {
+			return a.connectingScreen.View()
+		}
+		return "Connecting..."
 	default:
 		return "Unknown screen"
 	}
@@ -240,12 +267,14 @@ func (a *App) updateStartRide(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc":
+			a.connectStatus = "" // Clear error when going back
 			a.screen = ScreenMainMenu
 		case "up", "k":
 			a.startRideMenu.MoveUp()
 		case "down", "j":
 			a.startRideMenu.MoveDown()
 		case "enter":
+			a.connectStatus = "" // Clear previous error
 			switch a.startRideMenu.Selected() {
 			case 0: // Free Ride
 				return a, a.startRide(RideFree, nil)
@@ -323,9 +352,12 @@ func (a *App) updateSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case 0: // Trainer Connection
 				a.trainerSettings = NewTrainerSettings(a.config.Bluetooth.TrainerAddress)
 				a.screen = ScreenTrainerSettings
-			case 1: // Routes Folder
+			case 1: // Bike Settings
+				a.bikeSettings = NewBikeSettings(a.config)
+				a.screen = ScreenBikeSettings
+			case 2: // Routes Folder
 				// TODO: Allow editing routes folder
-			case 2: // Back
+			case 3: // Back
 				a.screen = ScreenMainMenu
 			}
 		}
@@ -354,6 +386,36 @@ func (a *App) updateTrainerSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.trainerSettings.address = ""
 				config.Save(a.config, config.DefaultConfigDir())
 			case 2: // Back
+				a.screen = ScreenSettings
+			}
+		}
+	}
+	return a, nil
+}
+
+func (a *App) updateBikeSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		// If editing, delegate to bike settings
+		if a.bikeSettings.IsEditing() {
+			a.bikeSettings.HandleKey(msg.String())
+			return a, nil
+		}
+
+		switch msg.String() {
+		case "esc":
+			a.screen = ScreenSettings
+		case "up", "k":
+			a.bikeSettings.MoveUp()
+		case "down", "j":
+			a.bikeSettings.MoveDown()
+		case "enter":
+			switch a.bikeSettings.Selected() {
+			case 0, 1, 2, 3: // Editable fields
+				a.bikeSettings.StartEdit()
+			case 4: // Back
+				// Save config before leaving
+				config.Save(a.config, config.DefaultConfigDir())
 				a.screen = ScreenSettings
 			}
 		}
@@ -429,6 +491,33 @@ func (a *App) updateScanner(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
+func (a *App) updateConnecting(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if a.connectingScreen == nil {
+		return a, nil
+	}
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			// Cancel connection
+			if a.rideSession != nil {
+				a.rideSession.Stop()
+			}
+			a.screen = ScreenStartRide
+			a.connectingScreen = nil
+			a.rideSession = nil
+			a.rideScreen = nil
+			return a, nil // Return early to avoid updating nil connectingScreen
+		}
+	}
+
+	// Update spinner
+	var cmd tea.Cmd
+	a.connectingScreen, cmd = a.connectingScreen.Update(msg)
+	return a, cmd
+}
+
 func (a *App) startRide(rideType RideType, route *RouteInfo) tea.Cmd {
 	// Create ride session with real Bluetooth
 	// Set mock=false to use actual trainer, mock=true for development testing
@@ -439,7 +528,7 @@ func (a *App) startRide(rideType RideType, route *RouteInfo) tea.Cmd {
 	}
 
 	a.rideSession = session
-	a.rideScreen = NewRideScreen()
+	a.rideScreen = NewRideScreen(route)
 
 	// Set up callbacks
 	a.rideScreen.SetCallbacks(
@@ -457,11 +546,15 @@ func (a *App) startRide(rideType RideType, route *RouteInfo) tea.Cmd {
 		},
 	)
 
-	a.connecting = true
-	a.connectStatus = "Connecting to trainer..."
+	// Create connecting screen
+	a.connectingScreen = NewConnectingScreen()
+	a.screen = ScreenConnecting
 
 	// Start connection
-	return session.Connect()
+	return tea.Batch(
+		a.connectingScreen.Init(),
+		session.Connect(),
+	)
 }
 
 // Run starts the TUI application

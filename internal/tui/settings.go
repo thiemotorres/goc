@@ -18,6 +18,7 @@ func NewSettingsMenu(cfg *config.Config) *SettingsMenu {
 	return &SettingsMenu{
 		items: []string{
 			"Trainer Connection",
+			"Bike Settings",
 			"Routes Folder",
 			"← Back",
 		},
@@ -65,7 +66,9 @@ func (m *SettingsMenu) View() string {
 			} else {
 				extra = " (not set)"
 			}
-		case 1: // Routes
+		case 1: // Bike Settings
+			extra = fmt.Sprintf(" (%d chainrings, %d cogs)", len(m.config.Bike.Chainrings), len(m.config.Bike.Cassette))
+		case 2: // Routes
 			extra = fmt.Sprintf("\n      %s", truncate(m.config.Routes.Folder, 40))
 		}
 

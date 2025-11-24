@@ -7,6 +7,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/NimbleMarkets/ntcharts/linechart/streamlinechart"
+	"github.com/thiemotorres/goc/internal/gpx"
 )
 
 // RideScreen is the active ride display
@@ -14,11 +16,15 @@ type RideScreen struct {
 	width  int
 	height int
 
-	// Data buffers for charts
-	powerData   []float64
-	cadenceData []float64
-	speedData   []float64
-	maxPoints   int
+	// Route
+	route     *RouteInfo
+	routeView *RouteView
+
+	// Charts
+	powerChart   streamlinechart.Model
+	cadenceChart streamlinechart.Model
+	speedChart   streamlinechart.Model
+	maxPoints    int
 
 	// Current values
 	power   float64
@@ -46,9 +52,29 @@ type RideScreen struct {
 	onQuit      func()
 }
 
-func NewRideScreen() *RideScreen {
+func NewRideScreen(route *RouteInfo) *RideScreen {
+	// Create charts with appropriate dimensions
+	// Width and height will be adjusted in View() based on terminal size
+	powerChart := streamlinechart.New(60, 15)
+	cadenceChart := streamlinechart.New(60, 15)
+	speedChart := streamlinechart.New(60, 15)
+
+	// Load GPX route if provided
+	var routeView *RouteView
+	if route != nil {
+		gpxRoute, err := gpx.Load(route.Path)
+		if err == nil {
+			routeView = NewRouteView(route, gpxRoute, 60, 15)
+		}
+	}
+
 	return &RideScreen{
-		maxPoints: 60, // ~1 minute of data for sparkline
+		route:        route,
+		routeView:    routeView,
+		powerChart:   powerChart,
+		cadenceChart: cadenceChart,
+		speedChart:   speedChart,
+		maxPoints:    300, // ~5 minutes of data at 1 update/sec
 	}
 }
 
@@ -85,6 +111,10 @@ func (rs *RideScreen) Update(msg tea.Msg) tea.Cmd {
 			if rs.onPause != nil {
 				rs.onPause()
 			}
+		case "tab":
+			if rs.routeView != nil {
+				rs.routeView.ToggleMode()
+			}
 		case "q":
 			if rs.onQuit != nil {
 				rs.onQuit()
@@ -93,6 +123,12 @@ func (rs *RideScreen) Update(msg tea.Msg) tea.Cmd {
 	case tea.WindowSizeMsg:
 		rs.width = msg.Width
 		rs.height = msg.Height
+		// Resize route view if it exists
+		if rs.routeView != nil {
+			leftWidth := int(float64(rs.width) * 0.4)
+			routeHeight := int(float64(rs.height-4) * 0.6)
+			rs.routeView.Resize(leftWidth-8, routeHeight-8)
+		}
 	}
 	return nil
 }
@@ -102,15 +138,10 @@ func (rs *RideScreen) UpdateMetrics(power, cadence, speed float64) {
 	rs.cadence = cadence
 	rs.speed = speed
 
-	rs.powerData = append(rs.powerData, power)
-	rs.cadenceData = append(rs.cadenceData, cadence)
-	rs.speedData = append(rs.speedData, speed)
-
-	if len(rs.powerData) > rs.maxPoints {
-		rs.powerData = rs.powerData[1:]
-		rs.cadenceData = rs.cadenceData[1:]
-		rs.speedData = rs.speedData[1:]
-	}
+	// Push new data to charts
+	rs.powerChart.Push(power)
+	rs.cadenceChart.Push(cadence)
+	rs.speedChart.Push(speed)
 }
 
 func (rs *RideScreen) UpdateStats(elapsed time.Duration, distance, avgPower, avgCadence, avgSpeed, elevation float64) {
@@ -120,6 +151,11 @@ func (rs *RideScreen) UpdateStats(elapsed time.Duration, distance, avgPower, avg
 	rs.avgCadence = avgCadence
 	rs.avgSpeed = avgSpeed
 	rs.elevation = elevation
+
+	// Update route view with current position
+	if rs.routeView != nil {
+		rs.routeView.Update(distance, rs.gradient)
+	}
 }
 
 func (rs *RideScreen) UpdateStatus(gear string, gradient float64, mode string, paused bool) {
@@ -130,144 +166,157 @@ func (rs *RideScreen) UpdateStatus(gear string, gradient float64, mode string, p
 }
 
 func (rs *RideScreen) View() string {
-	var b strings.Builder
+	if rs.width == 0 || rs.height == 0 {
+		return "Initializing..."
+	}
+
+	// Calculate layout dimensions
+	leftWidth := int(float64(rs.width) * 0.4)
+	rightWidth := rs.width - leftWidth - 2 // Account for borders
 
 	// Title
 	title := "goc - Indoor Cycling Trainer"
 	if rs.paused {
 		title += " [PAUSED]"
 	}
+
+	// Build left column (Route + Stats)
+	leftColumn := rs.buildLeftColumn(leftWidth, rs.height-4)
+
+	// Build right column (Charts + Status)
+	rightColumn := rs.buildRightColumn(rightWidth, rs.height-4)
+
+	// Join columns
+	content := lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, rightColumn)
+
+	// Add title and render
+	var b strings.Builder
 	b.WriteString(titleStyle.Render(title))
-	b.WriteString("\n\n")
-
-	// Big metrics row
-	powerStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("212")).
-		Width(20).
-		Align(lipgloss.Center)
-
-	cadenceStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("45")).
-		Width(20).
-		Align(lipgloss.Center)
-
-	speedStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("42")).
-		Width(20).
-		Align(lipgloss.Center)
-
-	bigMetrics := lipgloss.JoinHorizontal(lipgloss.Center,
-		powerStyle.Render(fmt.Sprintf("%.0f W", rs.power)),
-		cadenceStyle.Render(fmt.Sprintf("%.0f rpm", rs.cadence)),
-		speedStyle.Render(fmt.Sprintf("%.1f km/h", rs.speed)),
-	)
-	b.WriteString(bigMetrics)
 	b.WriteString("\n")
-
-	// Sparklines
-	powerSparkline := rs.generateSparkline(rs.powerData, 20)
-	cadenceSparkline := rs.generateSparkline(rs.cadenceData, 20)
-	speedSparkline := rs.generateSparkline(rs.speedData, 20)
-
-	sparklines := lipgloss.JoinHorizontal(lipgloss.Center,
-		lipgloss.NewStyle().Width(20).Align(lipgloss.Center).Foreground(lipgloss.Color("212")).Render(powerSparkline),
-		lipgloss.NewStyle().Width(20).Align(lipgloss.Center).Foreground(lipgloss.Color("45")).Render(cadenceSparkline),
-		lipgloss.NewStyle().Width(20).Align(lipgloss.Center).Foreground(lipgloss.Color("42")).Render(speedSparkline),
-	)
-	b.WriteString(sparklines)
-	b.WriteString("\n\n")
-
-	// Stats
-	statsStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
-	stats := fmt.Sprintf(
-		"Time: %s  |  Distance: %.1f km  |  Elevation: +%.0fm",
-		formatDuration(rs.elapsed),
-		rs.distance/1000,
-		rs.elevation,
-	)
-	b.WriteString(statsStyle.Render(stats))
-	b.WriteString("\n")
-
-	avgs := fmt.Sprintf(
-		"Avg Power: %.0fW  |  Avg Cadence: %.0f rpm  |  Avg Speed: %.1f km/h",
-		rs.avgPower, rs.avgCadence, rs.avgSpeed,
-	)
-	b.WriteString(statsStyle.Render(avgs))
-	b.WriteString("\n\n")
-
-	// Status bar
-	gearStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("229"))
-	status := fmt.Sprintf("Gear: %s  |  Gradient: %+.1f%%  |  Mode: %s",
-		gearStyle.Render(rs.gear), rs.gradient, rs.mode)
-	b.WriteString(status)
-	b.WriteString("\n\n")
-
-	// Controls help
-	help := helpStyle.Render("[↑↓] Shift  [←→] Resistance  [Space] Pause  [q] Quit")
-	b.WriteString(help)
+	b.WriteString(content)
 
 	return b.String()
 }
 
-func (rs *RideScreen) generateSparkline(data []float64, width int) string {
-	if len(data) == 0 {
-		return strings.Repeat("▁", width)
+func (rs *RideScreen) buildLeftColumn(width, height int) string {
+	// Route view (top 60% of left column)
+	routeHeight := int(float64(height) * 0.6)
+	routeView := rs.buildRouteView(width-4, routeHeight-4)
+	routePanel := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Padding(1).
+		Width(width - 4).
+		Height(routeHeight - 2).
+		Render("┤ Route ├\n" + routeView)
+
+	// Stats view (bottom 40% of left column)
+	statsHeight := height - routeHeight
+	statsView := rs.buildStatsView(width-4, statsHeight-4)
+	statsPanel := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Padding(1).
+		Width(width - 4).
+		Height(statsHeight - 2).
+		Render("┤ Stats ├\n" + statsView)
+
+	return lipgloss.JoinVertical(lipgloss.Left, routePanel, statsPanel)
+}
+
+func (rs *RideScreen) buildRightColumn(width, height int) string {
+	chartHeight := int(float64(height) * 0.25)
+
+	// Update chart dimensions
+	rs.powerChart.Resize(width-8, chartHeight-4)
+	rs.cadenceChart.Resize(width-8, chartHeight-4)
+	rs.speedChart.Resize(width-8, chartHeight-4)
+
+	// Draw charts
+	rs.powerChart.Draw()
+	rs.cadenceChart.Draw()
+	rs.speedChart.Draw()
+
+	// Power chart
+	powerPanel := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("212")).
+		Padding(1).
+		Width(width - 4).
+		Height(chartHeight - 2).
+		Render(fmt.Sprintf("┤ Power: %.0f W ├\n%s", rs.power, rs.powerChart.View()))
+
+	// Cadence chart
+	cadencePanel := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("45")).
+		Padding(1).
+		Width(width - 4).
+		Height(chartHeight - 2).
+		Render(fmt.Sprintf("┤ Cadence: %.0f rpm ├\n%s", rs.cadence, rs.cadenceChart.View()))
+
+	// Speed chart
+	speedPanel := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("42")).
+		Padding(1).
+		Width(width - 4).
+		Height(chartHeight - 2).
+		Render(fmt.Sprintf("┤ Speed: %.1f km/h ├\n%s", rs.speed, rs.speedChart.View()))
+
+	// Status panel
+	statusView := rs.buildStatusView(width-4, chartHeight-4)
+	statusPanel := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Padding(1).
+		Width(width - 4).
+		Height(chartHeight - 2).
+		Render("┤ Status ├\n" + statusView)
+
+	return lipgloss.JoinVertical(lipgloss.Left,
+		powerPanel,
+		cadencePanel,
+		speedPanel,
+		statusPanel,
+	)
+}
+
+func (rs *RideScreen) buildRouteView(width, height int) string {
+	if rs.routeView != nil {
+		return rs.routeView.View()
+	} else if rs.route != nil {
+		// Fallback if routeView failed to load
+		return fmt.Sprintf("Route: %s\n\nDistance: %.1f km\nElevation: +%.0fm\n\n[Route failed to load]",
+			rs.route.Name,
+			rs.route.Distance/1000,
+			rs.route.Ascent)
 	}
+	return "Free Ride\n\nNo route selected"
+}
 
-	// Sample data to fit width
-	sampled := make([]float64, width)
-	if len(data) <= width {
-		// Pad with zeros at start
-		offset := width - len(data)
-		for i := 0; i < width; i++ {
-			if i < offset {
-				sampled[i] = 0
-			} else {
-				sampled[i] = data[i-offset]
-			}
-		}
-	} else {
-		// Sample evenly
-		for i := 0; i < width; i++ {
-			idx := int(float64(i) * float64(len(data)-1) / float64(width-1))
-			sampled[i] = data[idx]
-		}
-	}
+func (rs *RideScreen) buildStatsView(width, height int) string {
+	var b strings.Builder
 
-	// Find min/max
-	minVal, maxVal := sampled[0], sampled[0]
-	for _, v := range sampled {
-		if v < minVal {
-			minVal = v
-		}
-		if v > maxVal {
-			maxVal = v
-		}
-	}
+	b.WriteString(fmt.Sprintf("Time:      %s\n", formatDuration(rs.elapsed)))
+	b.WriteString(fmt.Sprintf("Distance:  %.2f km\n", rs.distance/1000))
+	b.WriteString(fmt.Sprintf("Elevation: +%.0f m\n\n", rs.elevation))
+	b.WriteString(fmt.Sprintf("Avg Power:   %.0f W\n", rs.avgPower))
+	b.WriteString(fmt.Sprintf("Avg Cadence: %.0f rpm\n", rs.avgCadence))
+	b.WriteString(fmt.Sprintf("Avg Speed:   %.1f km/h\n", rs.avgSpeed))
 
-	// Sparkline characters
-	chars := []rune{'▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'}
+	return b.String()
+}
 
-	var sb strings.Builder
-	valRange := maxVal - minVal
-	if valRange == 0 {
-		valRange = 1
-	}
+func (rs *RideScreen) buildStatusView(width, height int) string {
+	var b strings.Builder
 
-	for _, v := range sampled {
-		normalized := (v - minVal) / valRange
-		idx := int(normalized * float64(len(chars)-1))
-		if idx >= len(chars) {
-			idx = len(chars) - 1
-		}
-		if idx < 0 {
-			idx = 0
-		}
-		sb.WriteRune(chars[idx])
-	}
+	gearStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("229"))
 
-	return sb.String()
+	b.WriteString(fmt.Sprintf("Gear:     %s\n", gearStyle.Render(rs.gear)))
+	b.WriteString(fmt.Sprintf("Gradient: %+.1f%%\n", rs.gradient))
+	b.WriteString(fmt.Sprintf("Mode:     %s\n\n", rs.mode))
+	b.WriteString(helpStyle.Render("[↑↓] Shift  [←→] Resistance  [Space] Pause  [q] Quit"))
+
+	return b.String()
 }
