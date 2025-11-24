@@ -76,9 +76,13 @@ func (s *Scanner) Scan(timeout time.Duration) ([]DeviceInfo, error) {
 		if err != nil && !strings.Contains(err.Error(), "timeout") {
 			return nil, err
 		}
+		adapter.StopScan() // Ensure scan is stopped even if callback finished
 	case <-s.stopChan:
 		adapter.StopScan()
 	}
+
+	// Give Bluetooth stack time to fully stop scanning before connection attempts
+	time.Sleep(100 * time.Millisecond)
 
 	return s.devices, nil
 }

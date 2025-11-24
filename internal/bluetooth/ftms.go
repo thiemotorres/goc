@@ -119,20 +119,31 @@ func (m *FTMSManager) Connect() error {
 	m.deviceAddress = targetAddress
 
 	// Discover services
-	services, err := device.DiscoverServices([]bluetooth.UUID{
-		bluetooth.NewUUID(mustParseUUID(FTMSServiceUUID)),
-	})
-	if err != nil || len(services) == 0 {
+	services, err := device.DiscoverServices(nil)
+	if err != nil {
+		device.Disconnect()
+		return errors.New("failed to discover services: " + err.Error())
+	}
+
+	// Find FTMS service
+	var ftmsService bluetooth.DeviceService
+	var found bool
+	for _, svc := range services {
+		if svc.UUID().String() == FTMSServiceUUID {
+			ftmsService = svc
+			found = true
+			break
+		}
+	}
+	if !found {
 		device.Disconnect()
 		return errors.New("FTMS service not found")
 	}
 
-	ftmsService := services[0]
-
 	// Discover characteristics
 	chars, err := ftmsService.DiscoverCharacteristics([]bluetooth.UUID{
-		bluetooth.NewUUID(mustParseUUID(IndoorBikeDataUUID)),
-		bluetooth.NewUUID(mustParseUUID(FitnessMachineControlPointUUID)),
+		mustParseUUID(IndoorBikeDataUUID),
+		mustParseUUID(FitnessMachineControlPointUUID),
 	})
 	if err != nil {
 		device.Disconnect()
@@ -252,10 +263,10 @@ func (m *FTMSManager) SetTargetPower(watts float64) error {
 	return err
 }
 
-func mustParseUUID(s string) [16]byte {
+func mustParseUUID(s string) bluetooth.UUID {
 	uuid, err := bluetooth.ParseUUID(s)
 	if err != nil {
 		panic("invalid UUID: " + s)
 	}
-	return uuid.Bytes()
+	return uuid
 }
