@@ -29,14 +29,16 @@ type App struct {
 	quitting   bool
 
 	// Sub-models
-	mainMenu *MainMenu
+	mainMenu      *MainMenu
+	startRideMenu *StartRideMenu
 }
 
 // NewApp creates a new application
 func NewApp() *App {
 	return &App{
-		screen:   ScreenMainMenu,
-		mainMenu: NewMainMenu(),
+		screen:        ScreenMainMenu,
+		mainMenu:      NewMainMenu(),
+		startRideMenu: NewStartRideMenu(),
 	}
 }
 
@@ -61,6 +63,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch a.screen {
 	case ScreenMainMenu:
 		return a.updateMainMenu(msg)
+	case ScreenStartRide:
+		return a.updateStartRide(msg)
 	}
 
 	return a, nil
@@ -74,6 +78,8 @@ func (a *App) View() string {
 	switch a.screen {
 	case ScreenMainMenu:
 		return a.mainMenu.View()
+	case ScreenStartRide:
+		return a.startRideMenu.View()
 	default:
 		return "Unknown screen"
 	}
@@ -103,6 +109,32 @@ func (a *App) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case 4: // Quit
 				a.quitting = true
 				return a, tea.Quit
+			}
+		}
+	}
+	return a, nil
+}
+
+func (a *App) updateStartRide(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			a.screen = ScreenMainMenu
+		case "up", "k":
+			a.startRideMenu.MoveUp()
+		case "down", "j":
+			a.startRideMenu.MoveDown()
+		case "enter":
+			switch a.startRideMenu.Selected() {
+			case 0: // Free Ride
+				// TODO: Start free ride
+			case 1: // ERG Mode
+				// TODO: Show ERG watts input
+			case 2: // Ride a Route
+				a.screen = ScreenBrowseRoutes
+			case 3: // Back
+				a.screen = ScreenMainMenu
 			}
 		}
 	}
