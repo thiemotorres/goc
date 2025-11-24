@@ -8,6 +8,29 @@ import (
 	"github.com/thiemotorres/goc/internal/gpx"
 )
 
+// Gradient color styles for elevation profile
+var (
+	gradientFlat  = lipgloss.NewStyle().Background(lipgloss.Color("34"))   // Green: 0-3%
+	gradientMod   = lipgloss.NewStyle().Background(lipgloss.Color("226"))  // Yellow: 3-6%
+	gradientHard  = lipgloss.NewStyle().Background(lipgloss.Color("214"))  // Orange: 6-10%
+	gradientSteep = lipgloss.NewStyle().Background(lipgloss.Color("196"))  // Red: >10%
+	gradientDesc  = lipgloss.NewStyle().Background(lipgloss.Color("240"))  // Gray: descent
+)
+
+// gradientColorStyle returns lipgloss style for given gradient percentage
+func gradientColorStyle(gradient float64) lipgloss.Style {
+	if gradient < 0 {
+		return gradientDesc
+	} else if gradient < 3.0 {
+		return gradientFlat
+	} else if gradient < 6.0 {
+		return gradientMod
+	} else if gradient < 10.0 {
+		return gradientHard
+	}
+	return gradientSteep
+}
+
 // RouteViewMode represents the current view mode
 type RouteViewMode int
 
