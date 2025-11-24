@@ -14,6 +14,7 @@ type Config struct {
 	Shifter   ShifterConfig   `mapstructure:"shifter"`
 	Bike      BikeConfig      `mapstructure:"bike"`
 	Bluetooth BluetoothConfig `mapstructure:"bluetooth"`
+	Routes    RoutesConfig    `mapstructure:"routes"`
 	Display   DisplayConfig   `mapstructure:"display"`
 	Controls  ControlsConfig  `mapstructure:"controls"`
 }
@@ -21,6 +22,11 @@ type Config struct {
 // BluetoothConfig holds Bluetooth connection settings
 type BluetoothConfig struct {
 	TrainerAddress string `mapstructure:"trainer_address"`
+}
+
+// RoutesConfig holds route file settings
+type RoutesConfig struct {
+	Folder string `mapstructure:"folder"`
 }
 
 type TrainerConfig struct {
@@ -76,6 +82,10 @@ func Load(configDir string) (*Config, error) {
 }
 
 func setDefaults(v *viper.Viper) {
+	// Routes defaults
+	home, _ := os.UserHomeDir()
+	v.SetDefault("routes.folder", filepath.Join(home, ".config", "goc", "routes"))
+
 	// Bike defaults
 	v.SetDefault("bike.preset", "road-2x11")
 	v.SetDefault("bike.chainrings", []int{50, 34})
@@ -115,6 +125,7 @@ func Save(cfg *Config, configDir string) error {
 	v.Set("trainer.device_id", cfg.Trainer.DeviceID)
 	v.Set("shifter.device_id", cfg.Shifter.DeviceID)
 	v.Set("bluetooth.trainer_address", cfg.Bluetooth.TrainerAddress)
+	v.Set("routes.folder", cfg.Routes.Folder)
 	v.Set("bike.preset", cfg.Bike.Preset)
 	v.Set("bike.chainrings", cfg.Bike.Chainrings)
 	v.Set("bike.cassette", cfg.Bike.Cassette)

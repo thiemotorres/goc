@@ -51,3 +51,15 @@ func TestSaveConfig(t *testing.T) {
 	assert.Equal(t, "AA:BB:CC:DD:EE:FF", loaded.Trainer.DeviceID)
 	assert.Equal(t, []int{52, 36}, loaded.Bike.Chainrings)
 }
+
+func TestRoutesFolder_Default(t *testing.T) {
+	cfg, err := Load(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	home, _ := os.UserHomeDir()
+	expected := filepath.Join(home, ".config", "goc", "routes")
+	if cfg.Routes.Folder != expected {
+		t.Errorf("got %q, want %q", cfg.Routes.Folder, expected)
+	}
+}
