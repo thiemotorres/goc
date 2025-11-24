@@ -6,12 +6,17 @@ import (
 	"os"
 
 	"github.com/thiemotorres/goc/cmd"
+	"github.com/thiemotorres/goc/internal/tui"
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
+		// No args - launch TUI
+		if err := tui.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
 	}
 
 	switch os.Args[1] {
