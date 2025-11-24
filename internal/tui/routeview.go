@@ -377,3 +377,49 @@ func (rv *RouteView) View() string {
 
 	return b.String()
 }
+
+// drawLine uses Bresenham's algorithm to draw a line on a 2D grid
+func drawLine(grid [][]bool, x0, y0, x1, y1 int) {
+	dx := abs(x1 - x0)
+	dy := abs(y1 - y0)
+	sx := 1
+	if x0 > x1 {
+		sx = -1
+	}
+	sy := 1
+	if y0 > y1 {
+		sy = -1
+	}
+
+	err := dx - dy
+	x, y := x0, y0
+
+	for {
+		// Mark point if in bounds
+		if y >= 0 && y < len(grid) && x >= 0 && x < len(grid[0]) {
+			grid[y][x] = true
+		}
+
+		if x == x1 && y == y1 {
+			break
+		}
+
+		e2 := 2 * err
+		if e2 > -dy {
+			err -= dy
+			x += sx
+		}
+		if e2 < dx {
+			err += dx
+			y += sy
+		}
+	}
+}
+
+// abs returns absolute value of an integer
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}

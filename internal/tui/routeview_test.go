@@ -144,3 +144,42 @@ func TestPositionMarkerInElevationProfile(t *testing.T) {
 		t.Error("Expected NO position marker when routeInfo.Distance is 0")
 	}
 }
+
+func TestDrawLine(t *testing.T) {
+	tests := []struct {
+		name           string
+		x0, y0, x1, y1 int
+		width, height  int
+		wantPoints     int // Approximate number of points
+	}{
+		{"horizontal", 0, 5, 10, 5, 15, 10, 11},
+		{"vertical", 5, 0, 5, 10, 15, 15, 11},
+		{"diagonal", 0, 0, 10, 10, 15, 15, 11},
+		{"reverse", 10, 10, 0, 0, 15, 15, 11},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			grid := make([][]bool, tt.height)
+			for i := range grid {
+				grid[i] = make([]bool, tt.width)
+			}
+
+			drawLine(grid, tt.x0, tt.y0, tt.x1, tt.y1)
+
+			// Count marked points
+			count := 0
+			for y := 0; y < tt.height; y++ {
+				for x := 0; x < tt.width; x++ {
+					if grid[y][x] {
+						count++
+					}
+				}
+			}
+
+			if count != tt.wantPoints {
+				t.Errorf("drawLine() marked %d points, want %d", count, tt.wantPoints)
+			}
+		})
+	}
+}
