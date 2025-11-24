@@ -136,10 +136,11 @@ func TestPositionMarkerInElevationProfile(t *testing.T) {
 		t.Error("Expected position marker at end of route")
 	}
 
-	// Test with no position (distance = 0, should not show marker at position)
+	// Test with no position (distance = 0, routeInfo.Distance = 0)
 	rv.distance = 0
 	rv.routeInfo.Distance = 0
 	output = rv.drawElevationProfile()
-	// When distance is 0, posX should be -1, so no marker should appear
-	// This is actually handled by the calculation logic
+	if strings.Contains(output, "┃") {
+		t.Error("Expected NO position marker when routeInfo.Distance is 0")
+	}
 }
