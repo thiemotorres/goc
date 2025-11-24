@@ -32,11 +32,13 @@ type App struct {
 	quitting   bool
 
 	// Sub-models
-	mainMenu      *MainMenu
-	startRideMenu *StartRideMenu
-	routesBrowser *RoutesBrowser
-	routePreview  *RoutePreview
-	selectedRoute *RouteInfo
+	mainMenu        *MainMenu
+	startRideMenu   *StartRideMenu
+	routesBrowser   *RoutesBrowser
+	routePreview    *RoutePreview
+	selectedRoute   *RouteInfo
+	settingsMenu    *SettingsMenu
+	trainerSettings *TrainerSettings
 
 	// Config
 	config *config.Config
@@ -49,6 +51,7 @@ func NewApp(cfg *config.Config) *App {
 		mainMenu:      NewMainMenu(),
 		startRideMenu: NewStartRideMenu(),
 		routesBrowser: NewRoutesBrowser(cfg.Routes.Folder),
+		settingsMenu:  NewSettingsMenu(cfg),
 		config:        cfg,
 	}
 }
@@ -80,6 +83,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.updateBrowseRoutes(msg)
 	case ScreenRoutePreview:
 		return a.updateRoutePreview(msg)
+	case ScreenSettings:
+		return a.updateSettings(msg)
+	case ScreenTrainerSettings:
+		return a.updateTrainerSettings(msg)
 	}
 
 	return a, nil
@@ -102,6 +109,13 @@ func (a *App) View() string {
 			return a.routePreview.View()
 		}
 		return "No route selected"
+	case ScreenSettings:
+		return a.settingsMenu.View()
+	case ScreenTrainerSettings:
+		if a.trainerSettings != nil {
+			return a.trainerSettings.View()
+		}
+		return "Settings not loaded"
 	default:
 		return "Unknown screen"
 	}
@@ -203,6 +217,57 @@ func (a *App) updateRoutePreview(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// TODO: Connect and start
 			} else {
 				a.screen = ScreenBrowseRoutes
+			}
+		}
+	}
+	return a, nil
+}
+
+func (a *App) updateSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			a.screen = ScreenMainMenu
+		case "up", "k":
+			a.settingsMenu.MoveUp()
+		case "down", "j":
+			a.settingsMenu.MoveDown()
+		case "enter":
+			switch a.settingsMenu.Selected() {
+			case 0: // Trainer Connection
+				a.trainerSettings = NewTrainerSettings(a.config.Bluetooth.TrainerAddress)
+				a.screen = ScreenTrainerSettings
+			case 1: // Routes Folder
+				// TODO: Allow editing routes folder
+			case 2: // Back
+				a.screen = ScreenMainMenu
+			}
+		}
+	}
+	return a, nil
+}
+
+func (a *App) updateTrainerSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			a.screen = ScreenSettings
+		case "up", "k":
+			a.trainerSettings.MoveUp()
+		case "down", "j":
+			a.trainerSettings.MoveDown()
+		case "enter":
+			switch a.trainerSettings.Selected() {
+			case 0: // Scan for Trainers
+				// TODO: Start Bluetooth scan
+			case 1: // Forget Saved Trainer
+				a.config.Bluetooth.TrainerAddress = ""
+				a.trainerSettings.address = ""
+				// TODO: Save config
+			case 2: // Back
+				a.screen = ScreenSettings
 			}
 		}
 	}
