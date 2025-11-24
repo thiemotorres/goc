@@ -39,6 +39,7 @@ type App struct {
 	selectedRoute   *RouteInfo
 	settingsMenu    *SettingsMenu
 	trainerSettings *TrainerSettings
+	historyView     *HistoryView
 
 	// Config
 	config *config.Config
@@ -87,6 +88,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.updateSettings(msg)
 	case ScreenTrainerSettings:
 		return a.updateTrainerSettings(msg)
+	case ScreenHistory:
+		return a.updateHistory(msg)
 	}
 
 	return a, nil
@@ -116,6 +119,11 @@ func (a *App) View() string {
 			return a.trainerSettings.View()
 		}
 		return "Settings not loaded"
+	case ScreenHistory:
+		if a.historyView != nil {
+			return a.historyView.View()
+		}
+		return "History not loaded"
 	default:
 		return "Unknown screen"
 	}
@@ -139,6 +147,7 @@ func (a *App) updateMainMenu(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case 1: // Browse Routes
 				a.screen = ScreenBrowseRoutes
 			case 2: // History
+				a.historyView = NewHistoryView()
 				a.screen = ScreenHistory
 			case 3: // Settings
 				a.screen = ScreenSettings
@@ -268,6 +277,28 @@ func (a *App) updateTrainerSettings(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// TODO: Save config
 			case 2: // Back
 				a.screen = ScreenSettings
+			}
+		}
+	}
+	return a, nil
+}
+
+func (a *App) updateHistory(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "esc":
+			a.screen = ScreenMainMenu
+		case "up", "k":
+			a.historyView.MoveUp()
+		case "down", "j":
+			a.historyView.MoveDown()
+		case "enter":
+			if ride := a.historyView.SelectedRide(); ride != nil {
+				// TODO: Show ride detail
+			} else {
+				// Back selected
+				a.screen = ScreenMainMenu
 			}
 		}
 	}
