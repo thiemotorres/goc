@@ -6,7 +6,6 @@ import (
 
 	"github.com/NimbleMarkets/ntcharts/canvas"
 	"github.com/NimbleMarkets/ntcharts/linechart"
-	"github.com/NimbleMarkets/ntcharts/linechart/timeserieslinechart"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/thiemotorres/goc/internal/gpx"
 )
@@ -63,7 +62,7 @@ type RouteView struct {
 
 	// Charts (ntcharts-based)
 	minimapChart   linechart.Model
-	elevationChart timeserieslinechart.Model
+	elevationChart linechart.Model
 
 	// Dimensions
 	width  int
@@ -143,6 +142,60 @@ func createMinimapChart(route *gpx.Route, width, height int) linechart.Model {
 	return chart
 }
 
+// createElevationChart creates and populates the elevation profile chart
+func createElevationChart(route *gpx.Route, routeInfo *RouteInfo, width, height int) linechart.Model {
+	// Find min/max elevation for Y axis
+	minEle, maxEle := route.Points[0].Elevation, route.Points[0].Elevation
+	for _, p := range route.Points {
+		if p.Elevation < minEle {
+			minEle = p.Elevation
+		}
+		if p.Elevation > maxEle {
+			maxEle = p.Elevation
+		}
+	}
+
+	// Add some padding to Y axis
+	eleRange := maxEle - minEle
+	if eleRange == 0 {
+		eleRange = 10
+	}
+	padding := eleRange * 0.1
+	minEle -= padding
+	maxEle += padding
+
+	// Styles
+	axisStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	lineStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("255"))
+
+	// Create chart with distance on X axis and elevation on Y axis
+	chart := linechart.New(
+		width, height,
+		0, routeInfo.Distance,
+		minEle, maxEle,
+		linechart.WithStyles(axisStyle, labelStyle, lineStyle),
+	)
+
+	// Draw elevation profile as connected line segments
+	if routeInfo.Distance > 0 {
+		var prevPoint canvas.Float64Point
+		for i := 0; i < width; i++ {
+			distance := float64(i) / float64(width-1) * routeInfo.Distance
+			elevation := route.ElevationAt(distance)
+			point := canvas.Float64Point{X: distance, Y: elevation}
+
+			if i > 0 {
+				chart.DrawBrailleLine(prevPoint, point)
+			}
+			prevPoint = point
+		}
+	}
+
+	chart.DrawXYAxisAndLabel()
+	return chart
+}
+
 // NewRouteView creates a new route view
 func NewRouteView(routeInfo *RouteInfo, route *gpx.Route, width, height int) *RouteView {
 	rv := &RouteView{
@@ -155,6 +208,7 @@ func NewRouteView(routeInfo *RouteInfo, route *gpx.Route, width, height int) *Ro
 
 	if route != nil && len(route.Points) > 0 {
 		rv.minimapChart = createMinimapChart(route, width, height)
+		rv.elevationChart = createElevationChart(route, routeInfo, width, height)
 	}
 
 	return rv
