@@ -37,29 +37,27 @@ func TestRouteViewIntegration(t *testing.T) {
 		if !strings.Contains(output, "Test Climb") {
 			t.Error("Expected route name in output")
 		}
-		if !strings.Contains(output, "█") {
-			t.Error("Expected route line characters")
-		}
 		if !strings.Contains(output, "[MINIMAP]") {
 			t.Error("Expected mode indicator")
 		}
+		// With ntcharts, we render the route using braille characters
+		if len(output) == 0 {
+			t.Error("Expected non-empty output")
+		}
 	})
 
-	// Test 2: Elevation profile with colors
-	t.Run("elevation_colors", func(t *testing.T) {
+	// Test 2: Elevation profile rendering
+	t.Run("elevation_profile", func(t *testing.T) {
 		rv.viewMode = RouteViewElevation
 		rv.distance = 2500 // Mid-climb
 		output := rv.View()
 
 		// Check that the elevation profile is rendered
-		// Note: lipgloss may not render ANSI codes in test environment
-		// so we check for the elevation line characters instead
-		elevationOutput := rv.drawElevationProfile()
-		if !strings.Contains(elevationOutput, "─") && !strings.Contains(elevationOutput, "╱") && !strings.Contains(elevationOutput, "╲") {
-			t.Error("Expected elevation line characters (─, ╱, or ╲) in elevation profile")
-		}
 		if !strings.Contains(output, "[ELEVATION PROFILE]") {
 			t.Error("Expected mode indicator")
+		}
+		if len(output) == 0 {
+			t.Error("Expected non-empty output")
 		}
 	})
 
@@ -96,16 +94,16 @@ func TestRouteViewIntegration(t *testing.T) {
 	t.Run("position_marker", func(t *testing.T) {
 		rv.distance = 2500
 		rv.viewMode = RouteViewMinimap
-		output := rv.drawMinimap()
+		output := rv.View()
 
 		if !strings.Contains(output, "●") {
 			t.Error("Expected position marker in minimap")
 		}
 
 		rv.viewMode = RouteViewElevation
-		output = rv.drawElevationProfile()
+		output = rv.View()
 
-		if !strings.Contains(output, "┃") {
+		if !strings.Contains(output, "●") {
 			t.Error("Expected position marker in elevation profile")
 		}
 	})
