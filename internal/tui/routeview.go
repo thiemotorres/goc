@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/NimbleMarkets/ntcharts/canvas"
+	"github.com/NimbleMarkets/ntcharts/linechart"
+	"github.com/NimbleMarkets/ntcharts/linechart/timeserieslinechart"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/thiemotorres/goc/internal/gpx"
 )
@@ -57,6 +60,10 @@ type RouteView struct {
 	gradient     float64 // current gradient
 	viewMode     RouteViewMode
 	autoSwitched bool
+
+	// Charts (ntcharts-based)
+	minimapChart   linechart.Model
+	elevationChart timeserieslinechart.Model
 
 	// Dimensions
 	width  int
