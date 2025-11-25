@@ -467,10 +467,36 @@ func (rv *RouteView) ToggleMode() {
 	rv.autoSwitched = false // Manual toggle disables auto-switch
 }
 
-// Resize resizes the view
+// drawMinimapPosition draws current position marker on minimap
+func (rv *RouteView) drawMinimapPosition() {
+	if rv.distance > 0 && rv.distance < rv.routeInfo.Distance {
+		lat, lon := rv.route.PositionAt(rv.distance)
+		point := canvas.Float64Point{X: lon, Y: lat}
+		posStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+		rv.minimapChart.DrawRuneWithStyle(point, '●', posStyle)
+	}
+}
+
+// drawElevationPosition draws current position marker on elevation chart
+func (rv *RouteView) drawElevationPosition() {
+	if rv.distance > 0 && rv.distance < rv.routeInfo.Distance {
+		elevation := rv.route.ElevationAt(rv.distance)
+		point := canvas.Float64Point{X: rv.distance, Y: elevation}
+		posStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+		rv.elevationChart.DrawRuneWithStyle(point, '●', posStyle)
+	}
+}
+
+// Resize resizes the view and recreates charts
 func (rv *RouteView) Resize(width, height int) {
 	rv.width = width
 	rv.height = height
+
+	// Recreate charts with new dimensions
+	if rv.route != nil && len(rv.route.Points) > 0 {
+		rv.minimapChart = createMinimapChart(rv.route, width, height)
+		rv.elevationChart = createElevationChart(rv.route, rv.routeInfo, width, height)
+	}
 }
 
 // View renders the route view
@@ -512,13 +538,16 @@ func (rv *RouteView) View() string {
 		rv.routeInfo.Ascent,
 		rv.routeInfo.AvgGrade))
 
-	// Render appropriate view
+	// Render appropriate chart with position marker
 	if rv.viewMode == RouteViewMinimap {
-		b.WriteString(rv.drawMinimap())
+		rv.drawMinimapPosition()
+		b.WriteString(rv.minimapChart.View())
 	} else {
-		b.WriteString(rv.drawElevationProfile())
+		rv.drawElevationPosition()
+		b.WriteString(rv.elevationChart.View())
 	}
 
+	b.WriteString("\n")
 	b.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Render("(Tab to toggle view)"))
 
 	return b.String()
