@@ -73,15 +73,91 @@ type RouteView struct {
 	climbTime float64 // time spent in climb mode
 }
 
+// calculateMinimapBounds calculates lat/lon bounds with padding
+func calculateMinimapBounds(points []gpx.Point) (minLat, maxLat, minLon, maxLon float64) {
+	if len(points) == 0 {
+		return 0, 1, 0, 1
+	}
+
+	minLat, maxLat = points[0].Lat, points[0].Lat
+	minLon, maxLon = points[0].Lon, points[0].Lon
+
+	for _, p := range points {
+		if p.Lat < minLat {
+			minLat = p.Lat
+		}
+		if p.Lat > maxLat {
+			maxLat = p.Lat
+		}
+		if p.Lon < minLon {
+			minLon = p.Lon
+		}
+		if p.Lon > maxLon {
+			maxLon = p.Lon
+		}
+	}
+
+	// Add 10% padding
+	latRange := maxLat - minLat
+	lonRange := maxLon - minLon
+	if latRange == 0 {
+		latRange = 0.001
+	}
+	if lonRange == 0 {
+		lonRange = 0.001
+	}
+
+	padding := 0.1
+	minLat -= latRange * padding
+	maxLat += latRange * padding
+	minLon -= lonRange * padding
+	maxLon += lonRange * padding
+
+	return minLat, maxLat, minLon, maxLon
+}
+
+// createMinimapChart creates and populates the minimap chart
+func createMinimapChart(route *gpx.Route, width, height int) linechart.Model {
+	minLat, maxLat, minLon, maxLon := calculateMinimapBounds(route.Points)
+
+	// Styles
+	axisStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	routeStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("255"))
+
+	// Create chart
+	chart := linechart.New(
+		width, height,
+		minLon, maxLon,
+		minLat, maxLat,
+		linechart.WithStyles(axisStyle, labelStyle, routeStyle),
+	)
+
+	// Draw all route points as braille dots
+	for _, pt := range route.Points {
+		point := canvas.Float64Point{X: pt.Lon, Y: pt.Lat}
+		chart.DrawBrailleLine(point, point)
+	}
+
+	chart.DrawXYAxisAndLabel()
+	return chart
+}
+
 // NewRouteView creates a new route view
 func NewRouteView(routeInfo *RouteInfo, route *gpx.Route, width, height int) *RouteView {
-	return &RouteView{
+	rv := &RouteView{
 		route:     route,
 		routeInfo: routeInfo,
-		viewMode:  RouteViewMinimap, // default to minimap
+		viewMode:  RouteViewMinimap,
 		width:     width,
 		height:    height,
 	}
+
+	if route != nil && len(route.Points) > 0 {
+		rv.minimapChart = createMinimapChart(route, width, height)
+	}
+
+	return rv
 }
 
 func (rv *RouteView) drawMinimap() string {
