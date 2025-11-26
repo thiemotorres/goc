@@ -80,7 +80,21 @@ func (e *Engine) Update(cadence, power, gradient float64) State {
 	case ModeERG:
 		resistance = 0 // ERG mode uses target power, not resistance
 	case ModeFREE:
-		resistance = e.manualResistance
+		// Apply gear ratio scaling to manual resistance
+		// Treat manual resistance as a base wheel force equivalent
+		// Scale by gear ratio to get pedal resistance
+		baseResistance := e.manualResistance
+		// Convert to approximate force, apply gear ratio, convert back
+		// Simplified: directly scale by gear ratio relative to reference (2.5)
+		const referenceGearRatio = 2.5
+		resistance = baseResistance * (e.gears.Ratio() / referenceGearRatio)
+		// Clamp to valid range
+		if resistance < 0 {
+			resistance = 0
+		}
+		if resistance > 100 {
+			resistance = 100
+		}
 	}
 
 	return State{

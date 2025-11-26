@@ -97,3 +97,33 @@ func TestEngine_Update_GearAffectsResistance(t *testing.T) {
 			hardState.Speed, easyState.Speed)
 	}
 }
+
+func TestEngine_Update_FreeMode_GearAffectsResistance(t *testing.T) {
+	cfg := EngineConfig{
+		Chainrings:         []int{50},
+		Cassette:           []int{11, 13, 15, 17, 19, 21},
+		WheelCircumference: 2.105,
+		RiderWeight:        75.0,
+	}
+	engine := NewEngine(cfg)
+	engine.SetMode(ModeFREE)
+	engine.SetManualResistance(30.0) // Base resistance
+
+	cadence := 80.0
+	power := 150.0
+	gradient := 0.0 // FREE mode ignores gradient
+
+	// Easy gear
+	engine.gears.SetRear(5) // 21t, ratio ~2.38
+	easyState := engine.Update(cadence, power, gradient)
+
+	// Hard gear
+	engine.gears.SetRear(1) // 13t, ratio ~3.85
+	hardState := engine.Update(cadence, power, gradient)
+
+	// Hard gear should have higher resistance
+	if hardState.Resistance <= easyState.Resistance {
+		t.Errorf("FREE mode: hard gear resistance %.2f should be > easy gear %.2f",
+			hardState.Resistance, easyState.Resistance)
+	}
+}
