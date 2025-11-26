@@ -50,3 +50,49 @@ func TestCalculateResistance_Clamped(t *testing.T) {
 	resistanceDownhill := CalculateResistance(50, -15, 75)
 	assert.GreaterOrEqual(t, resistanceDownhill, 0.0)
 }
+
+func TestCalculateWheelForce(t *testing.T) {
+	tests := []struct {
+		name            string
+		speedKmh        float64
+		gradientPercent float64
+		weightKg        float64
+		wantMin         float64
+		wantMax         float64
+	}{
+		{
+			name:            "flat road at 25 km/h",
+			speedKmh:        25.0,
+			gradientPercent: 0.0,
+			weightKg:        75.0,
+			wantMin:         12.0, // rolling + air (~13N)
+			wantMax:         14.0,
+		},
+		{
+			name:            "5% climb at 15 km/h",
+			speedKmh:        15.0,
+			gradientPercent: 5.0,
+			weightKg:        75.0,
+			wantMin:         48.0, // rolling + air + gradient (~49N)
+			wantMax:         50.0,
+		},
+		{
+			name:            "zero speed flat",
+			speedKmh:        0.0,
+			gradientPercent: 0.0,
+			weightKg:        75.0,
+			wantMin:         4.0, // only rolling resistance (~4.17N)
+			wantMax:         4.5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			force := CalculateWheelForce(tt.speedKmh, tt.gradientPercent, tt.weightKg)
+			if force < tt.wantMin || force > tt.wantMax {
+				t.Errorf("CalculateWheelForce() = %.2f, want between %.2f and %.2f",
+					force, tt.wantMin, tt.wantMax)
+			}
+		})
+	}
+}

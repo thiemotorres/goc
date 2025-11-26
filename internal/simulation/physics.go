@@ -34,3 +34,30 @@ func CalculateResistance(speedKmh, gradientPercent, weightKg float64) float64 {
 	// Clamp to 0-100 range (FTMS resistance level)
 	return math.Max(0, math.Min(100, totalResistance))
 }
+
+// CalculateWheelForce computes total resistance force at the wheel in Newtons
+// speedKmh: speed in km/h
+// gradientPercent: gradient in percent (positive = uphill)
+// weightKg: rider weight in kg
+func CalculateWheelForce(speedKmh, gradientPercent, weightKg float64) float64 {
+	// Convert speed to m/s
+	speedMs := speedKmh / 3.6
+
+	// Air drag: F = 0.5 × ρ × Cd × A × v²
+	// ρ = 1.225 kg/m³ (air density at sea level)
+	// Cd × A ≈ 0.3 (drag coefficient × frontal area for cycling)
+	airDrag := 0.5 * 1.225 * 0.3 * speedMs * speedMs
+
+	// Rolling resistance: F = Crr × m × g
+	// Crr = 0.005 (rolling coefficient for road tires)
+	// m = rider + bike mass (assume 10kg bike)
+	// g = 9.81 m/s²
+	totalMass := weightKg + 10.0
+	rollingForce := 0.005 * totalMass * 9.81
+
+	// Gradient resistance: F = m × g × sin(θ) ≈ m × g × (gradient/100)
+	// Using small angle approximation: sin(θ) ≈ tan(θ) = gradient/100
+	gradientForce := totalMass * 9.81 * (gradientPercent / 100.0)
+
+	return airDrag + rollingForce + gradientForce
+}
