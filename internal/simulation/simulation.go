@@ -76,7 +76,7 @@ func (e *Engine) Update(cadence, power, gradient float64) State {
 	var resistance float64
 	switch e.mode {
 	case ModeSIM:
-		resistance = CalculateResistance(speed, gradient, e.config.RiderWeight)
+		resistance = CalculateResistance(speed, gradient, e.config.RiderWeight, e.gears.Ratio())
 	case ModeERG:
 		resistance = 0 // ERG mode uses target power, not resistance
 	case ModeFREE:

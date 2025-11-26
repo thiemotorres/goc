@@ -16,23 +16,21 @@ func CalculateSpeed(cadence, gearRatio, wheelCircumference float64) float64 {
 }
 
 // CalculateResistance computes trainer resistance level (0-100) based on
-// speed (km/h), gradient (%), and rider weight (kg)
-func CalculateResistance(speedKmh, gradientPercent, weightKg float64) float64 {
-	// Base resistance from rolling resistance and air drag
-	// Simplified model: quadratic with speed
-	airResistance := 0.005 * speedKmh * speedKmh // increases with speed squared
-	rollingResistance := 2.0                      // constant base
+// speed, gradient, rider weight, and gear ratio using force-based physics model
+func CalculateResistance(speedKmh, gradientPercent, weightKg, gearRatio float64) float64 {
+	// Default scaling factor (can be made configurable later)
+	const scalingFactor = 0.2
 
-	// Gradient contribution
-	// At 10% grade, adds significant resistance
-	// gravity component: weight * sin(angle) ≈ weight * gradient/100 for small angles
-	gravityFactor := 0.5 // scaling factor to map to 0-100 range
-	gradientResistance := weightKg * (gradientPercent / 100) * gravityFactor
+	// Calculate total resistance force at wheel (Newtons)
+	wheelForce := CalculateWheelForce(speedKmh, gradientPercent, weightKg)
 
-	totalResistance := airResistance + rollingResistance + gradientResistance
+	// Apply gear ratio mechanical disadvantage
+	pedalForce := CalculatePedalForce(wheelForce, gearRatio)
 
-	// Clamp to 0-100 range (FTMS resistance level)
-	return math.Max(0, math.Min(100, totalResistance))
+	// Map to 0-100 resistance scale
+	resistance := MapForceToResistance(pedalForce, scalingFactor)
+
+	return resistance
 }
 
 // CalculateWheelForce computes total resistance force at the wheel in Newtons
