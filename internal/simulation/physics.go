@@ -75,3 +75,17 @@ func CalculateWheelForce(speedKmh, gradientPercent, weightKg float64) float64 {
 func CalculatePedalForce(wheelForce, gearRatio float64) float64 {
 	return wheelForce * gearRatio
 }
+
+// MapForceToResistance converts pedal force (Newtons) to trainer resistance level (0-100)
+// pedalForce: force at pedals in Newtons
+// scalingFactor: calibration factor (typical: 0.2)
+// Returns: resistance level clamped to 0-100
+//
+// Typical pedal forces:
+// - Light effort: 150-200N → 30-40 resistance
+// - Moderate effort: 200-300N → 40-60 resistance
+// - Hard effort: 300-400N → 60-80 resistance
+func MapForceToResistance(pedalForce, scalingFactor float64) float64 {
+	resistance := pedalForce * scalingFactor
+	return math.Max(0, math.Min(100, resistance))
+}

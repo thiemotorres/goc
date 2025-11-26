@@ -134,3 +134,52 @@ func TestCalculatePedalForce(t *testing.T) {
 		})
 	}
 }
+
+func TestMapForceToResistance(t *testing.T) {
+	tests := []struct {
+		name          string
+		pedalForce    float64
+		scalingFactor float64
+		want          float64
+	}{
+		{
+			name:          "200N with 0.2 scaling",
+			pedalForce:    200.0,
+			scalingFactor: 0.2,
+			want:          40.0,
+		},
+		{
+			name:          "400N with 0.2 scaling",
+			pedalForce:    400.0,
+			scalingFactor: 0.2,
+			want:          80.0,
+		},
+		{
+			name:          "100N with 0.2 scaling",
+			pedalForce:    100.0,
+			scalingFactor: 0.2,
+			want:          20.0,
+		},
+		{
+			name:          "600N with 0.2 scaling (clamps to 100)",
+			pedalForce:    600.0,
+			scalingFactor: 0.2,
+			want:          100.0,
+		},
+		{
+			name:          "negative force (clamps to 0)",
+			pedalForce:    -10.0,
+			scalingFactor: 0.2,
+			want:          0.0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := MapForceToResistance(tt.pedalForce, tt.scalingFactor)
+			if math.Abs(got-tt.want) > 0.01 {
+				t.Errorf("MapForceToResistance() = %.2f, want %.2f", got, tt.want)
+			}
+		})
+	}
+}
