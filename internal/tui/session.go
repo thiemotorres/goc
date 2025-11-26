@@ -78,6 +78,7 @@ func NewRideSession(cfg *config.Config, rideType RideType, route *RouteInfo, moc
 		Cassette:           cfg.Bike.Cassette,
 		WheelCircumference: cfg.Bike.WheelCircumference,
 		RiderWeight:        cfg.Bike.RiderWeight,
+		ResistanceScaling:  cfg.Bike.ResistanceScaling,
 	})
 
 	// Set mode

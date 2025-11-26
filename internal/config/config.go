@@ -43,6 +43,7 @@ type BikeConfig struct {
 	Cassette           []int   `mapstructure:"cassette"`
 	WheelCircumference float64 `mapstructure:"wheel_circumference"`
 	RiderWeight        float64 `mapstructure:"rider_weight"`
+	ResistanceScaling  float64 `mapstructure:"resistance_scaling"`
 }
 
 type DisplayConfig struct {
@@ -92,6 +93,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("bike.cassette", []int{11, 12, 13, 14, 15, 17, 19, 21, 24, 28})
 	v.SetDefault("bike.wheel_circumference", 2.1)
 	v.SetDefault("bike.rider_weight", 75.0)
+	v.SetDefault("bike.resistance_scaling", 0.2)
 
 	// Display defaults
 	v.SetDefault("display.graph_window_minutes", 5)
@@ -131,6 +133,7 @@ func Save(cfg *Config, configDir string) error {
 	v.Set("bike.cassette", cfg.Bike.Cassette)
 	v.Set("bike.wheel_circumference", cfg.Bike.WheelCircumference)
 	v.Set("bike.rider_weight", cfg.Bike.RiderWeight)
+	v.Set("bike.resistance_scaling", cfg.Bike.ResistanceScaling)
 	v.Set("display.graph_window_minutes", cfg.Display.GraphWindowMinutes)
 	v.Set("display.climb_gradient_threshold", cfg.Display.ClimbGradientThreshold)
 	v.Set("display.climb_elevation_threshold", cfg.Display.ClimbElevationThreshold)

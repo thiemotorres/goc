@@ -28,6 +28,7 @@ type EngineConfig struct {
 	Cassette           []int
 	WheelCircumference float64
 	RiderWeight        float64
+	ResistanceScaling  float64
 }
 
 // State represents current simulation state
@@ -76,7 +77,11 @@ func (e *Engine) Update(cadence, power, gradient float64) State {
 	var resistance float64
 	switch e.mode {
 	case ModeSIM:
-		resistance = CalculateResistance(speed, gradient, e.config.RiderWeight, e.gears.Ratio())
+		scaling := e.config.ResistanceScaling
+		if scaling == 0 {
+			scaling = 0.2 // Fallback default
+		}
+		resistance = CalculateResistance(speed, gradient, e.config.RiderWeight, e.gears.Ratio(), scaling)
 	case ModeERG:
 		resistance = 0 // ERG mode uses target power, not resistance
 	case ModeFREE:

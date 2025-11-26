@@ -17,10 +17,7 @@ func CalculateSpeed(cadence, gearRatio, wheelCircumference float64) float64 {
 
 // CalculateResistance computes trainer resistance level (0-100) based on
 // speed, gradient, rider weight, and gear ratio using force-based physics model
-func CalculateResistance(speedKmh, gradientPercent, weightKg, gearRatio float64) float64 {
-	// Default scaling factor (can be made configurable later)
-	const scalingFactor = 0.2
-
+func CalculateResistance(speedKmh, gradientPercent, weightKg, gearRatio, scalingFactor float64) float64 {
 	// Calculate total resistance force at wheel (Newtons)
 	wheelForce := CalculateWheelForce(speedKmh, gradientPercent, weightKg)
 

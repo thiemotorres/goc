@@ -12,6 +12,7 @@ func TestEngine_Update(t *testing.T) {
 		Cassette:           []int{11, 13, 15, 17, 19, 21, 24, 28},
 		WheelCircumference: 2.1,
 		RiderWeight:        75,
+		ResistanceScaling:  0.2,
 	}
 
 	engine := NewEngine(cfg)
@@ -31,6 +32,7 @@ func TestEngine_Modes(t *testing.T) {
 		Cassette:           []int{11, 13, 15, 17, 19, 21, 24, 28},
 		WheelCircumference: 2.1,
 		RiderWeight:        75,
+		ResistanceScaling:  0.2,
 	}
 
 	engine := NewEngine(cfg)
@@ -51,6 +53,7 @@ func TestEngine_Shifting(t *testing.T) {
 		Cassette:           []int{11, 13, 15, 17, 19},
 		WheelCircumference: 2.1,
 		RiderWeight:        75,
+		ResistanceScaling:  0.2,
 	}
 
 	engine := NewEngine(cfg)
@@ -69,6 +72,7 @@ func TestEngine_Update_GearAffectsResistance(t *testing.T) {
 		Cassette:           []int{11, 13, 15, 17, 19, 21, 24, 28},
 		WheelCircumference: 2.105,
 		RiderWeight:        75.0,
+		ResistanceScaling:  0.2,
 	}
 	engine := NewEngine(cfg)
 	engine.SetMode(ModeSIM)
@@ -104,6 +108,7 @@ func TestEngine_Update_FreeMode_GearAffectsResistance(t *testing.T) {
 		Cassette:           []int{11, 13, 15, 17, 19, 21},
 		WheelCircumference: 2.105,
 		RiderWeight:        75.0,
+		ResistanceScaling:  0.2,
 	}
 	engine := NewEngine(cfg)
 	engine.SetMode(ModeFREE)

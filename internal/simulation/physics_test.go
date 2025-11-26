@@ -21,7 +21,7 @@ func TestCalculateSpeed_Zero(t *testing.T) {
 
 func TestCalculateResistance_Flat(t *testing.T) {
 	// Flat ground, 30 km/h, 75kg rider, medium gear ratio
-	resistance := CalculateResistance(30, 0, 75, 2.5)
+	resistance := CalculateResistance(30, 0, 75, 2.5, 0.2)
 	// Should be moderate resistance from air/rolling
 	assert.Greater(t, resistance, 0.0)
 	assert.Less(t, resistance, 50.0) // FTMS resistance is 0-100 scale
@@ -29,26 +29,26 @@ func TestCalculateResistance_Flat(t *testing.T) {
 
 func TestCalculateResistance_Climb(t *testing.T) {
 	// 5% climb should increase resistance significantly
-	resistanceFlat := CalculateResistance(20, 0, 75, 2.5)
-	resistanceClimb := CalculateResistance(20, 5, 75, 2.5)
+	resistanceFlat := CalculateResistance(20, 0, 75, 2.5, 0.2)
+	resistanceClimb := CalculateResistance(20, 5, 75, 2.5, 0.2)
 
 	assert.Greater(t, resistanceClimb, resistanceFlat)
 }
 
 func TestCalculateResistance_Descent(t *testing.T) {
 	// Descent should reduce resistance
-	resistanceFlat := CalculateResistance(30, 0, 75, 2.5)
-	resistanceDescent := CalculateResistance(30, -5, 75, 2.5)
+	resistanceFlat := CalculateResistance(30, 0, 75, 2.5, 0.2)
+	resistanceDescent := CalculateResistance(30, -5, 75, 2.5, 0.2)
 
 	assert.Less(t, resistanceDescent, resistanceFlat)
 }
 
 func TestCalculateResistance_Clamped(t *testing.T) {
 	// Extreme values should be clamped to 0-100
-	resistanceSteep := CalculateResistance(5, 20, 100, 2.5)
+	resistanceSteep := CalculateResistance(5, 20, 100, 2.5, 0.2)
 	assert.LessOrEqual(t, resistanceSteep, 100.0)
 
-	resistanceDownhill := CalculateResistance(50, -15, 75, 2.5)
+	resistanceDownhill := CalculateResistance(50, -15, 75, 2.5, 0.2)
 	assert.GreaterOrEqual(t, resistanceDownhill, 0.0)
 }
 
@@ -225,7 +225,7 @@ func TestCalculateResistance_WithGearRatio(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := CalculateResistance(tt.speedKmh, tt.gradientPercent, tt.weightKg, tt.gearRatio)
+			got := CalculateResistance(tt.speedKmh, tt.gradientPercent, tt.weightKg, tt.gearRatio, 0.2)
 			if got < tt.wantMin || got > tt.wantMax {
 				t.Errorf("CalculateResistance() = %.2f, want between %.2f and %.2f",
 					got, tt.wantMin, tt.wantMax)
@@ -245,8 +245,8 @@ func TestCalculateResistance_GearRatioEffect(t *testing.T) {
 	gradientPercent := 2.0
 	weightKg := 75.0
 
-	easyGear := CalculateResistance(speedKmh, gradientPercent, weightKg, 2.0)
-	hardGear := CalculateResistance(speedKmh, gradientPercent, weightKg, 3.0)
+	easyGear := CalculateResistance(speedKmh, gradientPercent, weightKg, 2.0, 0.2)
+	hardGear := CalculateResistance(speedKmh, gradientPercent, weightKg, 3.0, 0.2)
 
 	if hardGear <= easyGear {
 		t.Errorf("Hard gear (3.0) resistance %.2f should be > easy gear (2.0) resistance %.2f",
