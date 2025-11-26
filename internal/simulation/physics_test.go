@@ -1,6 +1,7 @@
 package simulation
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -92,6 +93,43 @@ func TestCalculateWheelForce(t *testing.T) {
 			if force < tt.wantMin || force > tt.wantMax {
 				t.Errorf("CalculateWheelForce() = %.2f, want between %.2f and %.2f",
 					force, tt.wantMin, tt.wantMax)
+			}
+		})
+	}
+}
+
+func TestCalculatePedalForce(t *testing.T) {
+	tests := []struct {
+		name       string
+		wheelForce float64
+		gearRatio  float64
+		want       float64
+	}{
+		{
+			name:       "50N wheel force, 2.5 gear ratio",
+			wheelForce: 50.0,
+			gearRatio:  2.5,
+			want:       125.0,
+		},
+		{
+			name:       "100N wheel force, 3.0 gear ratio",
+			wheelForce: 100.0,
+			gearRatio:  3.0,
+			want:       300.0,
+		},
+		{
+			name:       "50N wheel force, 1.0 gear ratio",
+			wheelForce: 50.0,
+			gearRatio:  1.0,
+			want:       50.0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CalculatePedalForce(tt.wheelForce, tt.gearRatio)
+			if math.Abs(got-tt.want) > 0.01 {
+				t.Errorf("CalculatePedalForce() = %.2f, want %.2f", got, tt.want)
 			}
 		})
 	}

@@ -61,3 +61,17 @@ func CalculateWheelForce(speedKmh, gradientPercent, weightKg float64) float64 {
 
 	return airDrag + rollingForce + gradientForce
 }
+
+// CalculatePedalForce translates wheel force to pedal force using gear ratio
+// wheelForce: resistance force at wheel in Newtons
+// gearRatio: current gear ratio (chainring teeth / cog teeth)
+// Returns: equivalent force required at pedals in Newtons
+//
+// Physics: Power is conserved through drivetrain
+// P_pedal = P_wheel
+// F_pedal × v_pedal = F_wheel × v_wheel
+// Since v_wheel = v_pedal × gearRatio
+// Therefore: F_pedal = F_wheel × gearRatio
+func CalculatePedalForce(wheelForce, gearRatio float64) float64 {
+	return wheelForce * gearRatio
+}
