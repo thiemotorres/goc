@@ -228,3 +228,60 @@ func TestEngine_GradientSmoothing_EMA(t *testing.T) {
 	t.Logf("Noisy gradients: %v", noisyGradients)
 	t.Logf("Smoothed values: %v", smoothedValues)
 }
+
+func TestEngine_GradientSmoothing_Integration(t *testing.T) {
+	engine := NewEngine(EngineConfig{
+		Chainrings:         []int{50, 34},
+		Cassette:           []int{11, 13, 15, 17, 19, 21, 24, 28},
+		WheelCircumference: 2.105,
+		RiderWeight:        75.0,
+		ResistanceScaling:  0.2,
+		GradientSmoothing:  0.85, // Default smoothing
+	})
+	engine.SetMode(ModeSIM)
+
+	// Phase 1: Flat with noise
+	flatNoisy := []float64{0, 2, -1, 1, -2, 0, 1, -1, 0, 2, -1, 1, 0, -2, 1, 0, -1, 2, 0, -1}
+	resistanceStart := 0.0
+	for i, g := range flatNoisy {
+		state := engine.Update(80, 200, g)
+		if i == 0 {
+			resistanceStart = state.Resistance
+		}
+	}
+	resistanceFlat := engine.Update(80, 200, 0).Resistance
+
+	// Verify: resistance stayed relatively stable (< 10% change)
+	change := (resistanceFlat - resistanceStart) / resistanceStart
+	if change < 0 {
+		change = -change
+	}
+	if change > 0.10 {
+		t.Errorf("Flat terrain resistance changed too much: %.2f%%, expected < 10%%", change*100)
+	}
+
+	// Phase 2: Climb (sustained 3%)
+	for i := 0; i < 20; i++ {
+		engine.Update(80, 200, 3.0)
+	}
+	resistanceClimb := engine.Update(80, 200, 3.0).Resistance
+
+	// Verify: resistance increased significantly (should be higher)
+	if resistanceClimb <= resistanceFlat {
+		t.Errorf("Climb resistance (%.2f) not higher than flat (%.2f)", resistanceClimb, resistanceFlat)
+	}
+
+	// Phase 3: Return to flat with noise
+	for i := 0; i < 20; i++ {
+		g := flatNoisy[i%len(flatNoisy)]
+		engine.Update(80, 200, g)
+	}
+	resistanceEnd := engine.Update(80, 200, 0).Resistance
+
+	// Verify: resistance decreased back toward flat level
+	if resistanceEnd >= resistanceClimb {
+		t.Errorf("After descent, resistance (%.2f) not lower than climb (%.2f)", resistanceEnd, resistanceClimb)
+	}
+
+	t.Logf("Resistance progression: flat=%.2f → climb=%.2f → end=%.2f", resistanceFlat, resistanceClimb, resistanceEnd)
+}
