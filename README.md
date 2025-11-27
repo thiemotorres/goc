@@ -42,3 +42,23 @@ Adjust if gear shifting feels too easy or too hard.
 [bike]
 resistance_scaling = 0.2
 ```
+
+### gradient_smoothing
+
+**Type:** float
+**Default:** 0.85
+**Range:** 0.0 - 0.95
+
+Controls gradient smoothing using exponential moving average (EMA).
+
+- `0.0`: No smoothing (instant response, may feel jerky due to GPS noise)
+- `0.85`: Default (smooth, natural feel with ~20-30 second lag, mimics momentum)
+- `0.95`: Very smooth (minimal jitter, ~30+ second lag)
+
+Adjust this value if gradient changes feel too sudden or too slow to respond. Higher values provide smoother resistance changes but slower response to real climbs. Lower values are more responsive but may feel jerky on routes with GPS elevation noise.
+
+**Example:**
+```toml
+[bike]
+gradient_smoothing = 0.85
+```

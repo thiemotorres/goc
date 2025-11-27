@@ -63,3 +63,17 @@ func TestRoutesFolder_Default(t *testing.T) {
 		t.Errorf("got %q, want %q", cfg.Routes.Folder, expected)
 	}
 }
+
+func TestLoadConfig_GradientSmoothingDefault(t *testing.T) {
+	dir := t.TempDir()
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	// Should have default gradient smoothing value
+	if cfg.Bike.GradientSmoothing != 0.85 {
+		t.Errorf("GradientSmoothing = %.2f, want 0.85", cfg.Bike.GradientSmoothing)
+	}
+}
