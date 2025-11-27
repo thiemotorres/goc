@@ -83,6 +83,9 @@ func NewEngine(cfg EngineConfig) *Engine {
 // power: Watts from trainer
 // gradient: current gradient in percent (from GPX)
 func (e *Engine) Update(cadence, power, gradient float64) State {
+	// Apply exponential moving average to gradient
+	e.smoothedGradient = e.smoothingFactor*e.smoothedGradient + (1-e.smoothingFactor)*gradient
+
 	speed := CalculateSpeed(cadence, e.gears.Ratio(), e.config.WheelCircumference)
 
 	var resistance float64
@@ -92,7 +95,8 @@ func (e *Engine) Update(cadence, power, gradient float64) State {
 		if scaling == 0 {
 			scaling = 0.2 // Fallback default
 		}
-		resistance = CalculateResistance(speed, gradient, e.config.RiderWeight, e.gears.Ratio(), scaling)
+		// Use smoothed gradient instead of raw gradient
+		resistance = CalculateResistance(speed, e.smoothedGradient, e.config.RiderWeight, e.gears.Ratio(), scaling)
 	case ModeERG:
 		resistance = 0 // ERG mode uses target power, not resistance
 	case ModeFREE:
@@ -118,7 +122,7 @@ func (e *Engine) Update(cadence, power, gradient float64) State {
 		Power:       power,
 		Speed:       speed,
 		Resistance:  resistance,
-		Gradient:    gradient,
+		Gradient:    e.smoothedGradient, // Return smoothed gradient
 		GearString:  e.gears.String(),
 		GearRatio:   e.gears.Ratio(),
 		Mode:        e.mode,

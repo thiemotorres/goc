@@ -179,3 +179,52 @@ func TestEngine_GradientSmoothingInitialization(t *testing.T) {
 		})
 	}
 }
+
+func TestEngine_GradientSmoothing_EMA(t *testing.T) {
+	cfg := EngineConfig{
+		Chainrings:         []int{50},
+		Cassette:           []int{11, 13, 15, 17, 19, 21},
+		WheelCircumference: 2.105,
+		RiderWeight:        75.0,
+		ResistanceScaling:  0.2,
+		GradientSmoothing:  0.85, // 85% history, 15% new
+	}
+
+	engine := NewEngine(cfg)
+	engine.SetMode(ModeSIM)
+
+	// Feed sequence of noisy gradients: [0, 5, -2, 6, 1, 4, -1, 5]
+	noisyGradients := []float64{0, 5, -2, 6, 1, 4, -1, 5}
+	var smoothedValues []float64
+
+	for _, gradient := range noisyGradients {
+		state := engine.Update(80, 200, gradient)
+		smoothedValues = append(smoothedValues, state.Gradient)
+	}
+
+	// Verify smoothing characteristics:
+	// 1. Should not jump directly to input values (gradual changes)
+	if smoothedValues[1] >= 1.0 {
+		t.Errorf("After gradient jump from 0%% to 5%%, smoothed = %.2f, should be < 1.0 (gradual increase)",
+			smoothedValues[1])
+	}
+
+	// 2. Should be smoothed, not matching raw input
+	// After 8 updates with varying inputs, smoothed should be around 2-3%, NOT 5%
+	finalSmoothed := smoothedValues[len(smoothedValues)-1]
+	if finalSmoothed < 1.0 || finalSmoothed > 4.0 {
+		t.Errorf("Final smoothed gradient = %.2f, expected 1-4%% range (not matching last raw value of 5%%)",
+			finalSmoothed)
+	}
+
+	// 3. Verify it's using EMA (not passing through raw values)
+	for i, smoothed := range smoothedValues {
+		if smoothed == noisyGradients[i] && i > 0 {
+			t.Errorf("Smoothed gradient at index %d = %.2f matches raw input exactly, smoothing not applied",
+				i, smoothed)
+		}
+	}
+
+	t.Logf("Noisy gradients: %v", noisyGradients)
+	t.Logf("Smoothed values: %v", smoothedValues)
+}
