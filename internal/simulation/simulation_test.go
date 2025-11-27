@@ -132,3 +132,50 @@ func TestEngine_Update_FreeMode_GearAffectsResistance(t *testing.T) {
 			hardState.Resistance, easyState.Resistance)
 	}
 }
+
+func TestEngine_GradientSmoothingInitialization(t *testing.T) {
+	tests := []struct {
+		name              string
+		configSmoothing   float64
+		expectedSmoothing float64
+	}{
+		{
+			name:              "default smoothing",
+			configSmoothing:   0.0,
+			expectedSmoothing: 0.85,
+		},
+		{
+			name:              "custom smoothing",
+			configSmoothing:   0.7,
+			expectedSmoothing: 0.7,
+		},
+		{
+			name:              "disabled smoothing",
+			configSmoothing:   0.0,
+			expectedSmoothing: 0.85, // Falls back to default
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := EngineConfig{
+				Chainrings:         []int{50},
+				Cassette:           []int{11, 13, 15, 17},
+				WheelCircumference: 2.105,
+				RiderWeight:        75.0,
+				GradientSmoothing:  tt.configSmoothing,
+			}
+
+			engine := NewEngine(cfg)
+
+			if engine.smoothingFactor != tt.expectedSmoothing {
+				t.Errorf("smoothingFactor = %.2f, want %.2f",
+					engine.smoothingFactor, tt.expectedSmoothing)
+			}
+
+			if engine.smoothedGradient != 0.0 {
+				t.Errorf("smoothedGradient = %.2f, want 0.0", engine.smoothedGradient)
+			}
+		})
+	}
+}

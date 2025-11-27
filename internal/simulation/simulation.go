@@ -29,6 +29,7 @@ type EngineConfig struct {
 	WheelCircumference float64
 	RiderWeight        float64
 	ResistanceScaling  float64
+	GradientSmoothing  float64
 }
 
 // State represents current simulation state
@@ -55,15 +56,25 @@ type Engine struct {
 	manualResistance float64
 	distance         float64
 	elapsedTime      float64
+	smoothedGradient float64 // EMA-smoothed gradient
+	smoothingFactor  float64 // alpha value for EMA
 }
 
 // NewEngine creates a new simulation engine
 func NewEngine(cfg EngineConfig) *Engine {
+	// Set default smoothing if not specified
+	smoothing := cfg.GradientSmoothing
+	if smoothing == 0 {
+		smoothing = 0.85
+	}
+
 	return &Engine{
 		config:           cfg,
 		gears:            NewGearSystem(cfg.Chainrings, cfg.Cassette),
 		mode:             ModeSIM,
 		manualResistance: 20, // Default for FREE mode
+		smoothingFactor:  smoothing,
+		smoothedGradient: 0.0, // initialize at flat
 	}
 }
 
